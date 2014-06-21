@@ -40,9 +40,10 @@
   >> Grid Battle System?
   
   Special Thanks :
+  >> TDS for basic movement module in RMRK
   >> Mithran for Graphical global object ref
   >> Ryuz Andhika (for the first person who used my battle system)
-  >> Komozaku Neko (Bug report)
+  >> Komozaku Kazeko (Bug report)
   
   ----------------------------------------------------------------------------
   Overwritten Methods (Total: 17)
