@@ -14,3 +14,5 @@ Put the script in these order in your RPG Maker VX Ace script editor
 - Config 1 - General
 - Config 2 - Sequence
 - Implementation v1.3
+
+Then read the instruction. I do have plan to make wiki about how to install and such complete with example image / screenshots. But I believe it will take time to make
