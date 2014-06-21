@@ -1,4 +1,4 @@
-TSBS
+Theolized Sideview Battle System
 ====
 
-Theolized Sideview Battle System for RPGMakerVXAce
+An animated sideview battle system for RPG Maker VXAce
