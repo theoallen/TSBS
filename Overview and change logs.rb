@@ -132,6 +132,7 @@
 # Change Logs:
 # -----------------------------------------------------------------------------
 # 2014.06.29 - Bugfix, random repel target the dead battler
+#            - Revamp error handling for [:action]
 # 2014.06.28 - Added built-in change basic skill (attack and defend) for actor,
 #              weapon, class, and states
 #            - Magical skill doesn't reflect for self targeting
