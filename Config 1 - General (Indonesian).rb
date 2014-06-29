@@ -4,7 +4,7 @@
 # Contact : www.rpgmakerid.com (or) http://theolized.blogspot.com
 # (This script documentation is written in informal indonesian language)
 # -----------------------------------------------------------------------------
-# Requires : Theo - Basic Modules v1.5
+# Requires : Theo - Basic Modules v1.5b
 # >> Basic Functions 
 # >> Movement  
 # >> Core Result
@@ -22,6 +22,7 @@
 # >> Sabakan - Ao no Kiseki
 # >> Fomar ATB
 # >> EST - Ring System
+# >> AEA - Charge Turn Battle
 # -----------------------------------------------------------------------------
 # Known Incompatibility :
 # >> YEA - Lunatic Object
