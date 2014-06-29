@@ -1019,6 +1019,7 @@ class Game_Battler < Game_BattlerBase
     @acts = []
     @blend = 0
     @used_sequence = ""
+    @sequence_stack = []
     @boomerang = false
     @proj_afimg = false
     @balloon_id = 0
@@ -1057,6 +1058,7 @@ class Game_Battler < Game_BattlerBase
   def force_change_battle_phase(phase)
     @battle_phase = phase
     @used_sequence = phase_sequence[phase].call
+    @sequence_stack = [@used_sequence]
     @anim_index = 0
     @anim_index = rand(get_animloop_array.size - 1) if phase == :idle
     @finish = false
@@ -1532,10 +1534,14 @@ class Game_Battler < Game_BattlerBase
     if actions.nil?
       show_action_error(@acts[1])
     end
+    @sequence_stack.push(@acts[1])
+    @used_sequence = @acts[1]
     actions.each do |acts|
       @acts = acts
       execute_sequence
     end
+    @sequence_stack.pop
+    @used_sequence = @sequence_stack[-1]
   end
   # --------------------------------------------------------------------------
   # New method : Setup projectile [:proj_setup,]
