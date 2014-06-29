@@ -13,14 +13,15 @@
     use_item in Scene_Battle. So, if there is any script that also using that 
     method, it's highly will NOT compatible with this script. Also, I don't
     use invoke_item, instead I make my own invoke item method by adding
-    tsbs_invoke_item. So, anybody won't mess with it
+    tsbs_invoke_item. So, nobody will mess with it
   
   > I haven't touch menu or battle HUD. So, if you planned to make your own
-    battle HUD, I'm sure it will be compatible.
+    battle HUD, I'm sure it will be compatible. As long as it doesn't mess
+    around wih Game_Actor screen position (screen_x, screen_y)
   
-  > I also haven't touch turn order yet. But I haven't tried ATB either. So
-    far, it's compatible with Yanfly - Free turn, or Sabakan - Ao no Kiseki
-    battle system.
+  > I also haven't touch turn order yet. So far, it's compatible with Yanfly 
+    Free turn, Sabakan - Ao no Kiseki battle system, and Fomar ATB, AEA
+    Charge Turn Battle
     
   > If you plan to add galv's timed button attack, I'm afraid it will not
     compatible. Since I greatly changed the damage flow.
@@ -34,16 +35,20 @@
     modify or even make derivate of my works. If only you're capable
   
   Planned added features :
-  >> Compatibility test with AEA - Charge Turn Battle
+  >> Shot projectile from specific coordinate
+  >> Shot projectile to specific coordinate
   >> Extended timed-hit features
-  >> Transformation state
   >> Grid Battle System?
   
   Special Thanks :
   >> TDS for basic movement module in RMRK
   >> Mithran for Graphical global object ref
+  >> Eremidia: Dungeon! and Tankentai VX for basic inspirations
   >> Ryuz Andhika (for the first person who used my battle system)
-  >> Komozaku Kazeko (Bug report)
+  >> Skourpy (English Translation)
+  >> CielScarlet (English Translation)
+  >> Komozaku Kazeko (Bug reporter)
+  >> Nethernal (Bug reporter)
   
   ----------------------------------------------------------------------------
   Overwritten Methods (Total: 17)
@@ -66,7 +71,7 @@
   *) Scene_Battle     - use_item
   
   ----------------------------------------------------------------------------
-  Aliased Methods (Total: 38)
+  Aliased Methods (Total: 41)
   *) DataManager        - load_database
   *) BattleManager      - battle_start
                         - process_victory
@@ -84,6 +89,8 @@
                         - item_eva
                         - item_hit
   *) Game_Actor         - on_battle_start
+                        - attack_skill_id
+                        - guard_skill_id
   *) Game_Enemy         - initialize
                         - screen_x
                         - screen_y
@@ -98,6 +105,7 @@
                         - opacity=
                         - update_boss_collapse
                         - dispose
+                        - flash
   *) Spriteset_Battle   - initialize
                         - create_viewports
                         - update
@@ -123,15 +131,30 @@
 # -----------------------------------------------------------------------------
 # Change Logs:
 # -----------------------------------------------------------------------------
+# 2014.06.29 - Bugfix, random repel target the dead battler
+# 2014.06.28 - Added built-in change basic skill (attack and defend) for actor,
+#              weapon, class, and states
+#            - Magical skill doesn't reflect for self targeting
+# 2014.06.25 - Improved conditional branch [:if] and [:case]. Now support 
+#              nested array instead of only action key.
+#            - Revamp [:add_state] execution. Now supports state rate from
+#              built-in features or even ignore it. 
+#            - Revamp [:rem_state] execution.
+#            - Change "def chance" to evaluate float instead of integer as
+#              chance
+# 2014.06.23 - [:cast] default animation now same as skill animation
 # 2014.06.21 - Added <flip> tag for battler. To determine default flip
 #            - Added state transformation
 #            - Fix setup_cast flip animation in Game_Battler
-#            - Added change skill invocation
+#            - Added change skill
 #            - Bugfix, adding non battle members causing fatal errors
+#            - Simplify setup_action. Now use "each" instead of "insert". Save
+#              memory usage more
+#            - [:move_to_target] and [:sm_target] now move action battler to
+#              the middle of targets if the target is area
 # 2014.06.20 - Added animation following battler
 #            - Remove invoke method from $game_temp
 #            - Remove collapsed glitch and visibility
-#            - Remove state cancel animation
 #            - Glitch fix. Anim state animation sprite not reseted when loop
 # 2014.06.19 - Screen animation now support :anim_bottom
 #            - Area attack move to target now moves in the middle of area
@@ -141,13 +164,12 @@
 #            - Added instant reset
 # 2014.06.06 - Added :forced battle phase
 #            - Support show animation behind battler
-#            - Bugfix, show projectile throws error when no followed by YEA
+#            - Bugfix, show projectile throws error when not followed by YEA
 #              Battle Engine
-#            - Added show animation when remove state
 # 2014.05.14 - Prevent :counter battle phase of being replaced by :hurt
-# 2014.05.05 - Added loop sequence mode
-#            - Added while sequence mode
-#            - Change how :if sequence is handled
+# 2014.05.05 - Added [:loop] sequence mode
+#            - Added [:while] sequence mode
+#            - Change how [:if] sequence is handled
 # 2014.05.01 - Added smooth movement
 #            - Glitch fix on intro sequence where sprite is not updated on
 #              first time
@@ -178,7 +200,7 @@
 #            - Added show cutin graphic
 #            - Added return sequence key for each skill
 #            - Added dual wield show icon support
-#            - Reduce lag for too many animated enemies
+#            - Reduce lag for too many animated battlers
 # 2014.03.23 - Animation projectile now loops
 #            - Chance in add or remove state sequence now is optional (default
 #              is 100% if ommited)
