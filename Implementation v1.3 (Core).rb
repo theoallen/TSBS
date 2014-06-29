@@ -4,7 +4,7 @@
 # Contact : www.rpgmakerid.com (or) http://theolized.blogspot.com
 # (English Language)
 # -----------------------------------------------------------------------------
-# Requires : Theo - Basic Modules v1.5
+# Requires : Theo - Basic Modules v1.5b
 # >> Basic Functions 
 # >> Movement
 # >> Core Result
@@ -22,6 +22,7 @@
 # >> Sabakan - Ao no Kiseki
 # >> Fomar ATB
 # >> EST - Ring System
+# >> AEA - Charge Turn Battle
 # -----------------------------------------------------------------------------
 # Known Incompatibility :
 # >> YEA - Lunatic Object
@@ -202,6 +203,11 @@ module TSBS
   # Transform State
   
   DefaultFlip = /<flip>/i
+  # Default flip for enemies
+  
+  DefaultATK = /<attack[\s_]*:\s*(\d+)>/i
+  DefaultDEF = /<guard[\s_]*:\s*(\d+)>/i
+  # Default basic actions
   
   ToneREGX = 
   /<tone:\s*(-|\+*)(\d+),\s*(-|\+*)(\d+),\s*(-|\+*)(\d+),\s*(-|\+*)(\d+)>/i
@@ -232,15 +238,15 @@ module TSBS
   SBS_Collapse  = /\s*collapse\s*:\s*(.+)/i
   
   # -------------------------------------------------------------------------
-  # Error Handler
+  # Error Handler. Because I don't want to be blamed ~
   # -------------------------------------------------------------------------
   
   ErrorSound = RPG::SE.new("Buzzer1",100,100)
   def self.error(symbol, params, seq)
     ErrorSound.play
     text = "Sequence : #{seq}\n" +
-    "#{symbol} mode need at least #{params} parameters"
-    msgbox text
+    "#{symbol} mode needs at least #{params} parameters"
+    raise text
     exit
   end
   
@@ -254,8 +260,8 @@ end
 # ----------------------------------------------------------------------------
 # Kernel method for chance
 # ----------------------------------------------------------------------------
-def chance(percent)
-  return rand(100) <= percent
+def chance(c)
+  return rand < c
 end
 # ----------------------------------------------------------------------------
 # Copy method
@@ -314,8 +320,8 @@ class << DataManager
   # New Method : Load TSBS caches
   # --------------------------------------------------------------------------
   def load_tsbs
-    ($data_skills + $data_items + $data_states +
-      $data_actors + $data_enemies).compact.each do |item|
+    ($data_skills + $data_items + $data_states + $data_classes + 
+      $data_weapons + $data_actors + $data_enemies).compact.each do |item|
       item.load_tsbs
     end
   end  
@@ -395,6 +401,55 @@ class << BattleManager
 end
 
 #==============================================================================
+# ** RPG::Class
+#------------------------------------------------------------------------------
+#  This class handles database for classes
+#==============================================================================
+
+class RPG::Class < RPG::BaseItem
+  attr_accessor :attack_id
+  attr_accessor :guard_id
+  
+  def load_tsbs
+    @attack_id = 0
+    @guard_id = 0
+    self.note.split(/[\r\n]+/).each do |line|
+      case line
+      when TSBS::DefaultATK
+        @attack_id = $1.to_i
+      when TSBS::DefaultDEF
+        @guard_id = $1.to_i
+      end
+    end
+  end
+end
+
+#==============================================================================
+# ** RPG::Weapon
+#------------------------------------------------------------------------------
+#  This class handles database for weapons
+#==============================================================================
+
+class RPG::Weapon < RPG::EquipItem
+  attr_accessor :attack_id
+  attr_accessor :guard_id
+  
+  def load_tsbs
+    @attack_id = 0
+    @guard_id = 0
+    self.note.split(/[\r\n]+/).each do |line|
+      case line
+      when TSBS::DefaultATK
+        @attack_id = $1.to_i
+      when TSBS::DefaultDEF
+        @guard_id = $1.to_i
+      end
+    end
+  end
+  
+end
+
+#==============================================================================
 # ** RPG::State
 #------------------------------------------------------------------------------
 #  This class handles database for states
@@ -412,6 +467,8 @@ class RPG::State < RPG::BaseItem
   attr_accessor :sequence       # State sequence
   attr_accessor :state_anim     # State animation
   attr_accessor :trans_name     # Transform Name
+  attr_accessor :attack_id      # Default attack
+  attr_accessor :guard_id       # Default guard
   # --------------------------------------------------------------------------
   # New method : load TSBS notetags
   # --------------------------------------------------------------------------
@@ -422,6 +479,9 @@ class RPG::State < RPG::BaseItem
     @sequence = ""
     @state_anim = 0
     @trans_name = ""
+    @color = nil
+    @attack_id = 0
+    @guard_id = 0
     note.split(/[\r\n]+/).each do |line|
       case line
       when TSBS::ToneREGX
@@ -448,6 +508,10 @@ class RPG::State < RPG::BaseItem
         @state_anim = $1.to_i
       when TSBS::Transform
         @trans_name = $1.to_s
+      when TSBS::DefaultATK
+        @attack_id = $1.to_i
+      when TSBS::DefaultDEF
+        @guard_id = $1.to_i
       end
     end
   end
@@ -569,21 +633,23 @@ class RPG::Actor < RPG::BaseItem
   # --------------------------------------------------------------------------
   # New public accessors
   # --------------------------------------------------------------------------
-  attr_accessor :idle_key
-  attr_accessor :critical_key
-  attr_accessor :evade_key
-  attr_accessor :hurt_key
-  attr_accessor :return_key
-  attr_accessor :dead_key
-  attr_accessor :escape_key
-  attr_accessor :victory_key
-  attr_accessor :intro_key
-  attr_accessor :counter_key
-  attr_accessor :collapse_key
-  attr_accessor :battler_name
-  attr_accessor :counter_skill
-  attr_accessor :use_sprite
-  attr_accessor :reflect_anim
+  attr_accessor :idle_key       # Idle key sequence
+  attr_accessor :critical_key   # Critical key sequence
+  attr_accessor :evade_key      # Evade key sequence
+  attr_accessor :hurt_key       # Hurt key sequence
+  attr_accessor :return_key     # Return key sequence
+  attr_accessor :dead_key       # Dead key sequence
+  attr_accessor :escape_key     # Escape key sequence
+  attr_accessor :victory_key    # Victory key sequence
+  attr_accessor :intro_key      # Intro key sequence
+  attr_accessor :counter_key    # Counterattack key sequence
+  attr_accessor :collapse_key   # Collapse key sequence
+  attr_accessor :battler_name   # Battler name
+  attr_accessor :counter_skill  # Counterattack skill ID
+  attr_accessor :use_sprite     # Use sprite flag (always true)
+  attr_accessor :reflect_anim   # Reflect animation
+  attr_accessor :attack_id      # Attack skill ID
+  attr_accessor :guard_id       # Guard skill ID
   # --------------------------------------------------------------------------
   # New method : load TSBS notetags
   # --------------------------------------------------------------------------
@@ -603,8 +669,22 @@ class RPG::Actor < RPG::BaseItem
     @counter_skill = 1
     @reflect_anim = TSBS::Reflect_Guard
     @use_sprite = true
+    @attack_id = 0
+    @guard_id = 0
     load_sbs = false
     note.split(/[\r\n]+/).each do |line|
+      # -- Non TSBS sideview tag ---
+      case line
+      when TSBS::DefaultATK
+        @attack_id = $1.to_i
+      when TSBS::DefaultDEF
+        @guard_id = $1.to_i
+      when TSBS::ReflectAnim
+        @reflect_anim = $1.to_i
+      when TSBS::CounterSkillID
+        @counter_skill = $1.to_i
+      end
+      # -- TSBS sideview tag ---
       if line =~ TSBS::SBS_Start
         load_sbs = true
       elsif line =~ TSBS::SBS_Start_S
@@ -613,11 +693,7 @@ class RPG::Actor < RPG::BaseItem
       elsif line =~ TSBS::SBS_End
         load_sbs = false
       end
-      if line =~ TSBS::ReflectAnim
-        @reflect_anim = $1.to_i
-      elsif line =~ TSBS::CounterSkillID
-        @counter_skill = $1.to_i
-      end
+      # -- End ---
       next unless load_sbs
       case line
       when TSBS::SBS_Idle
@@ -657,19 +733,19 @@ class RPG::Enemy < RPG::BaseItem
   # --------------------------------------------------------------------------
   # New public accessors
   # --------------------------------------------------------------------------
-  attr_accessor :idle_key
-  attr_accessor :critical_key
-  attr_accessor :evade_key
-  attr_accessor :hurt_key
-  attr_accessor :return_key
-  attr_accessor :dead_key
-  attr_accessor :use_sprite
-  attr_accessor :intro_key
-  attr_accessor :counter_key
-  attr_accessor :collapse_key
-  attr_accessor :sprite_name
-  attr_accessor :counter_skill
-  attr_accessor :reflect_anim
+  attr_accessor :idle_key       # Idle key sequence
+  attr_accessor :critical_key   # Critical key sequence
+  attr_accessor :evade_key      # Evade key sequence
+  attr_accessor :hurt_key       # Hurt key sequence
+  attr_accessor :return_key     # Return key sequence
+  attr_accessor :dead_key       # Dead key sequence
+  attr_accessor :intro_key      # Intro key sequence
+  attr_accessor :counter_key    # Counterattack key sequence
+  attr_accessor :collapse_key   # Collapse key sequence
+  attr_accessor :use_sprite     # Use sprite flag (true/false)
+  attr_accessor :sprite_name    # Sprite name
+  attr_accessor :counter_skill  # Counter skill ID
+  attr_accessor :reflect_anim   # Reflect animation
   # --------------------------------------------------------------------------
   # New method : load TSBS notetags
   # --------------------------------------------------------------------------
@@ -1051,6 +1127,10 @@ class Game_Battler < Game_BattlerBase
   # --------------------------------------------------------------------------
   # New method : Idle sequence key
   # --------------------------------------------------------------------------
+  # Idle key sequence contains several sequence key. Include dead sequence,
+  # state sequence, critical sequence,and normal sequence. Dead key sequence
+  # has the top priority over others. Just look at the below
+  # --------------------------------------------------------------------------
   def idle
     return data_battler.dead_key if dead? && actor?
     return state_sequence if state_sequence
@@ -1078,6 +1158,7 @@ class Game_Battler < Game_BattlerBase
   end
   # --------------------------------------------------------------------------
   # New method : Skill sequence key
+  # Must be called when item_in_use isn't nil
   # --------------------------------------------------------------------------
   def skill
     return item_in_use.seq_key[rand(item_in_use.seq_key.size)]
@@ -1090,6 +1171,7 @@ class Game_Battler < Game_BattlerBase
   end
   # --------------------------------------------------------------------------
   # New method : Return sequence key
+  # Must be called when item_in_use isn't nil
   # --------------------------------------------------------------------------
   def return
     return item_in_use.return_key if !item_in_use.return_key.empty?
@@ -1097,6 +1179,7 @@ class Game_Battler < Game_BattlerBase
   end
   # --------------------------------------------------------------------------
   # New method : Preparation key
+  # Must be called when item_in_use isn't nil
   # --------------------------------------------------------------------------
   def prepare_key
     return item_in_use.prepare_key
@@ -1129,27 +1212,38 @@ class Game_Battler < Game_BattlerBase
   # Main animation sequence goes here
   # --------------------------------------------------------------------------
   def update_anim_index
+    
     # ----- Start ------ #
     @finish = false
     flip_val = @animation_array[0][2] # Flip Value
     @flip = flip_val if !flip_val.nil?
     @flip = default_flip if flip_val == :ori || (flip_val.nil? && 
       battle_phase != :skill)
+    # If battle phase isn't :skill, nil flip value will return the battler
+    # flip into default one
+    
     @afterimage = @animation_array[0][1]
-    @timed_hit = false
-    @timed_hit_count = 0
+    @timed_hit = false    # Timed hit flag
+    @timed_hit_count = 0  # Timed hit count
     reset_aftinfo
-    if battle_phase == :intro
-      reset_pos(1)
-      update_move
-    end
-    # ----- end of start ---- #
+    setup_instant_reset if battle_phase == :intro
+    # ----- Start ---- #
+    
+    tsbs_battler_post_start
+    
+    # --- Main Loop thread --- #
     loop do
       @acts = animloop
       @screen_z = screen_z_formula unless @lock_z  # update screen z
       execute_sequence # Execute sequence array
       end_phase  # Do end ~
     end
+    # --- Main Loop thread --- #
+  end
+  # --------------------------------------------------------------------------
+  # New method : Post Start (empty)
+  # --------------------------------------------------------------------------
+  def tsbs_battler_post_start
   end
   # --------------------------------------------------------------------------
   # New method : Execute Sequence array
@@ -1220,6 +1314,7 @@ class Game_Battler < Game_BattlerBase
     when SEQUENCE_INSTANT_RESET;      setup_instant_reset
     when SEQUENCE_ANIMFOLLOW;         $game_temp.anim_follow = true
     when SEQUENCE_CHANGE_SKILL;       setup_change_skill
+      # Interesting on addons?
     else;                             custom_sequence_handler
     end
   end
@@ -1232,23 +1327,24 @@ class Game_Battler < Game_BattlerBase
     if temporary_phase? && @finish
       self.force_change_battle_phase(:idle)
     end
-    Fiber.yield while @finish && !loop?
+    Fiber.yield while @finish && !loop? 
+    # Forever wait if finished and not loop
   end
   # --------------------------------------------------------------------------
-  # New method : Setup pose
+  # New method : Setup pose [:pose,]
   # --------------------------------------------------------------------------
   def setup_pose
     return TSBS.error(@acts[0], 3, @used_sequence) if @acts.size < 4
-    @battler_index = @acts[1]
-    @anim_cell = @acts[2]
-    @icon_key = @acts[4] if @acts[4]
-    @icon_key = @acts[5] if @acts[5] && flip
-    @acts[3].times do 
+    @battler_index = @acts[1]         # Battler index
+    @anim_cell = @acts[2]             # Change cell
+    @icon_key = @acts[4] if @acts[4]  # Icon call
+    @icon_key = @acts[5] if @acts[5] && flip  # Icon call
+    @acts[3].times do                 # Wait time
       method_wait
     end
   end
   # --------------------------------------------------------------------------
-  # New method : Setup movement
+  # New method : Setup movement [:move,]
   # --------------------------------------------------------------------------
   def setup_move
     return TSBS.error(@acts[0], 4, @used_sequence) if @acts.size < 5
@@ -1256,35 +1352,37 @@ class Game_Battler < Game_BattlerBase
     goto(@acts[1], @acts[2], @acts[3], @acts[4])
   end
   # --------------------------------------------------------------------------
-  # New method : Setup slide
+  # New method : Setup slide [:slide,]
   # --------------------------------------------------------------------------
   def setup_slide
-    return TSBS.error(@acts[0], 4, @used_sequence) if @acts.size < 4
+    return TSBS.error(@acts[0], 4, @used_sequence) if @acts.size < 5
     @move_obj.clear_move_info
     xpos = (flip ? -@acts[1] : @acts[1])
     ypos = @acts[2]
     slide(xpos, ypos, @acts[3], @acts[4])
   end
   # --------------------------------------------------------------------------
-  # New method : Setup reset
+  # New method : Setup reset [:goto_oripost,]
   # --------------------------------------------------------------------------
   def setup_reset
+    @move_obj.clear_move_info
     goto(@ori_x, @ori_y, @acts[1], @acts[2])
   end
   # --------------------------------------------------------------------------
-  # New method : Setup move to target
+  # New method : Setup move to target [:move_to_target,]
   # --------------------------------------------------------------------------
   def setup_move_to_target
+    return TSBS.error(@acts[0], 4, @used_sequence) if @acts.size < 5
     @move_obj.clear_move_info
     if area_flag
       size = target_array.size
       xpos = target_array.inject(0) {|r,battler| r + battler.x}/size
       ypos = target_array.inject(0) {|r,battler| r + battler.y}/size
       xpos *= -1 if flip
+      # Get the center coordinate of enemies
       goto(xpos, ypos, @acts[3], @acts[4])
       return
     end
-    return TSBS.error(@acts[0], 4, @used_sequence) if @acts.size < 5
     xpos = target.x + (flip ? -@acts[1] : @acts[1])
     ypos = target.y
     goto(xpos, ypos, @acts[3], @acts[4])
@@ -1304,41 +1402,50 @@ class Game_Battler < Game_BattlerBase
     "#{err.to_s}\n\n" +
     "Check your script call. If you still have no idea, ask for support " +
     "in RPG Maker forums"
-    msgbox result
+    raise result
     exit
   end
   # --------------------------------------------------------------------------
-  # New method : Setup eval script
+  # New method : Setup eval script [:script,]
   # --------------------------------------------------------------------------
   def setup_eval_script
     begin
       eval(@acts[1])
     rescue StandardError => err
-      display_error("[:script,]",err)
+      display_error("[#{SEQUENCE_SCRIPT},]",err)
     end
   end
   # --------------------------------------------------------------------------
-  # New method : Setup damage
+  # New method : Setup damage [:target_damage,]
   # --------------------------------------------------------------------------
   def setup_damage
-    item = copy(item_in_use)
-    if @acts[1].is_a?(String)
+    item = copy(item_in_use) 
+    # Copy item. In case if you want to modify anything :P
+    
+    # ----- Evaluate skill ------- #
+    if @acts[1].is_a?(String) # Change formula? No prob ~
       item.damage.formula = @acts[1]
-    elsif @acts[1].is_a?(Integer)
+    elsif @acts[1].is_a?(Integer) # Skill link? No prob ~
       item = $data_skills[@acts[1]]
-    elsif @acts[1].is_a?(Float)
+    elsif @acts[1].is_a?(Float) # Rescale damage? No prob ~
       item.damage.formula = "(#{item.damage.formula}) * #{@acts[1]}"
     end
+    
+    # ------- Check target scope ------- #
     if area_flag && target_array
+      # Damage to all targets ~
       target_array.uniq.each do |target|
         SceneManager.scene.tsbs_invoke_item(target, item)
+        # Check animation guard
         if !item.ignore_anim_guard? && item.parallel_anim?
           target.anim_guard = target.anim_guard_id
           target.anim_guard_mirror = target.flip
         end
       end
     elsif target
+      # Damage to single target
       SceneManager.scene.tsbs_invoke_item(target, item)
+      # Check animation guard
       if !item.ignore_anim_guard? && item.parallel_anim?
         target.anim_guard = target.anim_guard_id
         target.anim_guard_mirror = target.flip
@@ -1346,15 +1453,14 @@ class Game_Battler < Game_BattlerBase
     end
   end
   # --------------------------------------------------------------------------
-  # New method : Setup cast
+  # New method : Setup cast [:cast,]
   # --------------------------------------------------------------------------
   def setup_cast
-    return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
-    self.animation_id = @acts[1]
+    self.animation_id = @acts[1] || item_in_use.animation_id
     self.animation_mirror = (@acts[2].nil? ? flip : @acts[2])
   end
   # --------------------------------------------------------------------------
-  # New method : Setup animation
+  # New method : Setup animation [:show_anim,]
   # --------------------------------------------------------------------------
   def setup_anim
     if area_flag
@@ -1370,18 +1476,34 @@ class Game_Battler < Game_BattlerBase
   # --------------------------------------------------------------------------
   def setup_target_anim(target, ary)
     return unless target
-    anim_id = target.anim_guard_id
-    is_self = target == self
+    anim_id = target.anim_guard_id  # Animation guard
+    is_self = target == self        # Determine if self
+    # ------------------------------------------------------------------------
+    # Animation guard activation conditions
+    # ------------------------------------------------------------------------
     condition = !is_self && anim_id > 0 && !item_in_use.damage.recover? &&
       !item_in_use.ignore_anim_guard? && !ary[3] && !item_in_use.parallel_anim?
+    # ------------------------------------------------------------------------
+    # Condition list :
+    # > Animation guard won't be played to self targeting
+    # > Animation guard won't be played if the index is 0 or less
+    # > Animation guard won't be played if item/skill is recovery
+    # > Animation guard won't be played if item/skill ignores it
+    # > Animation guard won't be played if explicitly ignores in sequence
+    # > Animation guard won't be played if item is parallel animation. Instead,
+    #   it will be played simultaneously when [:target_damage,] is triggered
+    # ------------------------------------------------------------------------
+    # If anim_id explicitly given
     if ary[1]
       result_anim = (condition && ary[1] > 0 ? anim_id : ary[1])
       target.animation_id = result_anim
       target.animation_mirror = flip || ary[2]
+    # If self is an Actor and skill/item use normal attack animation
     elsif self.is_a?(Game_Actor) && item_in_use.animation_id == -1
       result_anim = (condition ? anim_id : atk_animation_id1)
       target.animation_id = result_anim
       target.animation_mirror = flip || ary[2]
+    # If anything ...
     else
       result_anim = (condition ? anim_id : item_in_use.animation_id)
       target.animation_id = result_anim
@@ -1389,7 +1511,7 @@ class Game_Battler < Game_BattlerBase
     end
   end
   # --------------------------------------------------------------------------
-  # New method : Setup battler flip
+  # New method : Setup battler flip [:flip,]
   # --------------------------------------------------------------------------
   def setup_flip
     return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
@@ -1402,7 +1524,7 @@ class Game_Battler < Game_BattlerBase
     end
   end
   # --------------------------------------------------------------------------
-  # New method : Setup actions
+  # New method : Setup actions [:action,]
   # --------------------------------------------------------------------------
   def setup_action
     return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
@@ -1410,15 +1532,13 @@ class Game_Battler < Game_BattlerBase
     if actions.nil?
       show_action_error(@acts[1])
     end
-    index = @anim_index + 1
-    actions.each do |act|
-      next unless act[0].is_a?(Symbol)
-      index += 1
-      @animation_array.insert(index, act)
+    actions.each do |acts|
+      @acts = acts
+      execute_sequence
     end
   end
   # --------------------------------------------------------------------------
-  # New method : Setup projectile
+  # New method : Setup projectile [:proj_setup,]
   # --------------------------------------------------------------------------
   def setup_projectile
     return TSBS.error(@acts[0], 2, @used_sequence) if @acts.size < 3
@@ -1426,7 +1546,7 @@ class Game_Battler < Game_BattlerBase
     @proj_end = @acts[2]
   end
   # --------------------------------------------------------------------------
-  # New method : Show projectile
+  # New method : Show projectile [:projectile,]
   # --------------------------------------------------------------------------
   def show_projectile
     return TSBS.error(@acts[0], 3, @used_sequence) if @acts.size < 4
@@ -1437,6 +1557,7 @@ class Game_Battler < Game_BattlerBase
     else
       get_spriteset.add_projectile(make_projectile(target))
     end
+    # Turn off extra projectile flag
     @boomerang = false
     @proj_afimg = false
   end
@@ -1459,7 +1580,12 @@ class Game_Battler < Game_BattlerBase
     proj.target = target
     proj.item = item_in_use
     ico = @acts[4]
-    icon_index = (ico.is_a?(String) ? eval(ico) : (ico.nil? ? 0 : ico))
+    icon_index = 0
+    begin
+      icon_index = (ico.is_a?(String) ? eval(ico) : (ico.nil? ? 0 : ico))
+    rescue StandardError => err
+      display_error("[#{SEQUENCE_PROJECTILE},]",err)
+    end
     proj.icon = icon_index
     tx = target.x
     anim = $data_animations[@acts[1]]
@@ -1474,7 +1600,9 @@ class Game_Battler < Game_BattlerBase
     return proj
   end
   # --------------------------------------------------------------------------
-  # New method : User damage
+  # New method : User damage [:user_damage]
+  # TBH, I think it's not really necessary since you could change the target
+  # to self by adding [:change_target, 11],  :/
   # --------------------------------------------------------------------------
   def setup_user_damage
     item = item_in_use
@@ -1488,7 +1616,7 @@ class Game_Battler < Game_BattlerBase
     SceneManager.scene.tsbs_invoke_item(self, item)
   end
   # --------------------------------------------------------------------------
-  # New method : Setup weapon icon
+  # New method : Setup weapon icon [:icon,]
   # --------------------------------------------------------------------------
   def setup_icon
     return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
@@ -1496,7 +1624,7 @@ class Game_Battler < Game_BattlerBase
     @icon_key = @acts[2] if @acts[2] && flip
   end
   # --------------------------------------------------------------------------
-  # New method : Setup sound
+  # New method : Setup sound [:sound,]
   # --------------------------------------------------------------------------
   def setup_sound
     return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
@@ -1513,21 +1641,33 @@ class Game_Battler < Game_BattlerBase
     act_true = @acts[2]
     act_false = @acts[3]
     bool = false
-    begin
+    begin # Test the script call condition
       bool = eval(@acts[1])
     rescue StandardError => err
-      display_error("[:if,]",err)
+      # Blame the script user if error :v
+      display_error("[#{SEQUENCE_IF},]",err)
     end
-    if bool
-      @acts = (act_true.is_a?(Array) ? act_true : [:action, act_true])
-      execute_sequence
-    elsif !act_false.nil?
-      @acts = (act_false.is_a?(Array) ? act_false : [:action, act_false])
-      execute_sequence
+    act_result = (bool ? act_true : (!act_false.nil? ? act_false: nil))
+    if act_result
+      is_array = act_result.is_a?(Array)
+      if is_array && act_result[0].is_a?(Array)
+        act_result.each do |action|
+          next unless action.is_a?(Array)
+          @acts = action
+          execute_sequence
+        end
+      elsif is_array
+        @acts = act_result
+        execute_sequence
+      else
+        @acts = [:action, act_result]
+        execute_sequence
+      end
     end
   end
   # --------------------------------------------------------------------------
   # New method : Setup timed hit system (BETA)
+  # Will expand it later. I hope ~
   # --------------------------------------------------------------------------
   def setup_timed_hit
     @timed_hit = false
@@ -1564,39 +1704,47 @@ class Game_Battler < Game_BattlerBase
     end
   end
   # --------------------------------------------------------------------------
-  # New method : Setup add state
+  # New method : Setup add state [:add_state,]
   # --------------------------------------------------------------------------
   def setup_add_state
     return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
     c = @acts[2] || 100
-    if chance(c)
-      if area_flag
-        target_array.each do |t|
-          t.add_state(@acts[1])
+    c = c/100.0 if c.integer?
+    if area_flag
+      target_array.each do |t|
+        cx = c
+        if !@acts[3]
+          cx *= target.state_rate(@acts[1]) if opposite?(self)
+          cx *= target.luk_effect_rate(self) if opposite?(self)
         end
-        return
+        t.add_state(@acts[1]) if chance(cx)
       end
-      target.add_state(@acts[1])
+      return
     end
+    return unless target
+    if !@acts[3]
+      c *= target.state_rate(@acts[1]) if opposite?(self)
+      c *= target.luk_effect_rate(self) if opposite?(self)
+    end
+    target.add_state(@acts[1]) if chance(c)
   end
   # --------------------------------------------------------------------------
-  # New method : Setup remove state
+  # New method : Setup remove state [:rem_state,]
   # --------------------------------------------------------------------------
   def setup_rem_state
     return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
     c = @acts[2] || 100
-    if chance(c)
-      if area_flag
-        target_array.each do |t|
-          t.remove_state(@acts[1])
-        end
-        return
+    c = c/100.0 if c.integer?
+    if area_flag
+      target_array.each do |t|
+        t.remove_state(@acts[1]) if chance(c)
       end
-      target.remove_state(@acts[1])
+      return
     end
+    target.remove_state(@acts[1]) if chance(c)
   end
   # --------------------------------------------------------------------------
-  # New method : Setup change target
+  # New method : Setup change target [:change_target,]
   # --------------------------------------------------------------------------
   def setup_change_target
     return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
@@ -1675,7 +1823,9 @@ class Game_Battler < Game_BattlerBase
     end
   end
   # --------------------------------------------------------------------------
-  # New method : Setup new picture (not tested)
+  # New method : Setup new picture (not tested) [:show_pic,]
+  # Seriously, it's not tested yet. I just looked at the default script, how
+  # to call picture. And I merely put the method here without testing
   # --------------------------------------------------------------------------
   def setup_show_picture
     pictures = $game_troop.screen.pictures
@@ -1692,7 +1842,7 @@ class Game_Battler < Game_BattlerBase
     pictures[id].show(*args)
   end
   # --------------------------------------------------------------------------
-  # New method : Setup target movement
+  # New method : Setup target movement [:target_move,]
   # --------------------------------------------------------------------------
   def setup_target_move
     return TSBS.error(@acts[0], 4, @used_sequence) if @acts.size < 5
@@ -1706,7 +1856,7 @@ class Game_Battler < Game_BattlerBase
     target.goto(*args)
   end
   # --------------------------------------------------------------------------
-  # New method : Setup target slide
+  # New method : Setup target slide [:target_slide,]
   # --------------------------------------------------------------------------
   def setup_target_slide
     return TSBS.error(@acts[0], 4, @used_sequence) if @acts.size < 5
@@ -1720,7 +1870,7 @@ class Game_Battler < Game_BattlerBase
     target.slide(*args)
   end
   # --------------------------------------------------------------------------
-  # New method : Setup target reset
+  # New method : Setup target reset [:target_reset]
   # --------------------------------------------------------------------------
   def setup_target_reset
     return TSBS.error(@acts[0], 2, @used_sequence) if @acts.size < 3
@@ -1733,17 +1883,17 @@ class Game_Battler < Game_BattlerBase
     target.reset_pos(@acts[1],@acts[2])
   end
   # --------------------------------------------------------------------------
-  # New method : Setup focus
+  # New method : Setup focus [:focus,]
   # --------------------------------------------------------------------------
   def setup_focus
     return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
     sprset = get_spriteset
     rect = sprset.focus_bg.bitmap.rect
     color = @acts[2] || Focus_BGColor
-    sprset.focus_bg.bitmap.fill_rect(rect,color)
-    sprset.focus_bg.fadein(@acts[1])
+    sprset.focus_bg.bitmap.fill_rect(rect,color)  # Recolor focus background
+    sprset.focus_bg.fadein(@acts[1])        # Trigger fadein
     sprset.battler_sprites.select do |spr|
-      !spr.battler.nil?
+      !spr.battler.nil? # Select avalaible battler
     end.each do |spr|
       if spr.battler != self && (spr.battler.actor? ? true : spr.battler.alive?)
         spr.fadeout(@acts[1]) if !target_array.include?(spr.battler)
@@ -1752,20 +1902,20 @@ class Game_Battler < Game_BattlerBase
     end
   end
   # --------------------------------------------------------------------------
-  # New method : Setup unfocus
+  # New method : Setup unfocus [:unfocus,]
   # --------------------------------------------------------------------------
   def setup_unfocus
     return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
     sprset = get_spriteset
     sprset.focus_bg.fadeout(@acts[1])
     sprset.battler_sprites.select do |spr|
-      !spr.battler.nil?
+      !spr.battler.nil? # Select avalaible battler
     end.each do |spr|
       spr.fadein(@acts[1]) if spr.battler.alive? || spr.battler.actor?
     end
   end
   # --------------------------------------------------------------------------
-  # New method : Setup target lock Z
+  # New method : Setup target lock Z [:target_lock_z,]
   # --------------------------------------------------------------------------
   def setup_target_z
     return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
@@ -1778,34 +1928,36 @@ class Game_Battler < Game_BattlerBase
     target.lock_z = @acts[1]
   end
   # --------------------------------------------------------------------------
-  # New method : Cutin Start
+  # New method : Cutin Start [:cutin_start,]
   # --------------------------------------------------------------------------  
   def setup_cutin
     return TSBS.error(@acts[0], 3, @used_sequence) if @acts.size < 4
-    file = @acts[1]
-    x = @acts[2]
-    y = @acts[3]
-    opa = @acts[4] || 255
-    zx = @acts[5] || 1.0
-    zy = @acts[6] || 1.0
+    #-------------------------------------------------------------------------
+    file = @acts[1]         # Filename
+    x = @acts[2]            # X Position
+    y = @acts[3]            # Y Position
+    opa = @acts[4] || 255   # Opacity (default: 255)
+    zx = @acts[5] || 1.0    # Zoom X  (default: 1.0)
+    zy = @acts[6] || 1.0    # Zoom Y  (default: 1.0)
+    #-------------------------------------------------------------------------
     get_spriteset.cutin.start(file,x,y,opa,zx,zy)
   end
   # --------------------------------------------------------------------------
-  # New method : Cutin Fade
+  # New method : Cutin Fade [:cuitn_fade,]
   # --------------------------------------------------------------------------  
   def setup_cutin_fade
     return TSBS.error(@acts[0], 2, @used_sequence) if @acts.size < 3
     get_spriteset.cutin.fade(@acts[1], @acts[2])
   end
   # --------------------------------------------------------------------------
-  # New method : Cutin Slide
+  # New method : Cutin Slide [:cutin_slide,]
   # --------------------------------------------------------------------------  
   def setup_cutin_slide
     return TSBS.error(@acts[0], 2, @used_sequence) if @acts.size < 3
     get_spriteset.cutin.slide(@acts[1], @acts[2], @acts[3])
   end
   # --------------------------------------------------------------------------
-  # New method : Setup Targets flip
+  # New method : Setup Targets flip [:target_flip,]
   # --------------------------------------------------------------------------  
   def setup_targets_flip
     return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
@@ -1818,7 +1970,7 @@ class Game_Battler < Game_BattlerBase
     target.flip = @acts[1]
   end
   # --------------------------------------------------------------------------
-  # New method : Setup Add Plane
+  # New method : Setup Add Plane [:plane_add,]
   # --------------------------------------------------------------------------    
   def setup_add_plane
     return TSBS.error(@acts[0], 3, @used_sequence) if @acts.size < 3
@@ -1830,7 +1982,7 @@ class Game_Battler < Game_BattlerBase
     get_spriteset.battle_plane.set(file,sox,soy,z,dur)
   end
   # --------------------------------------------------------------------------
-  # New method : Setup Delete Plane
+  # New method : Setup Delete Plane [:plane_del,]
   # --------------------------------------------------------------------------    
   def setup_del_plane
     return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
@@ -1838,7 +1990,7 @@ class Game_Battler < Game_BattlerBase
     get_spriteset.battle_plane.fadeout(fade)
   end
   # --------------------------------------------------------------------------
-  # New method : Setup Log Message Window
+  # New method : Setup Log Message Window [:log,]
   # --------------------------------------------------------------------------
   def setup_log_message
     return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
@@ -1847,14 +1999,14 @@ class Game_Battler < Game_BattlerBase
     SceneManager.scene.log_window.add_text(text)
   end
   # --------------------------------------------------------------------------
-  # New method : Setup Afterimage Information
+  # New method : Setup Afterimage Information [:aft_info,]
   # --------------------------------------------------------------------------
   def setup_aftinfo
     @afrate = @acts[1] || 3
     @afopac = @acts[2] || 20
   end
   # --------------------------------------------------------------------------
-  # New method : Smooth Moving
+  # New method : Smooth Moving [:sm_move,]
   # --------------------------------------------------------------------------
   def setup_smooth_move
     tx = @acts[1] || x
@@ -1865,7 +2017,7 @@ class Game_Battler < Game_BattlerBase
     smooth_move(tx,ty,dur,rev)
   end
   # --------------------------------------------------------------------------
-  # New method : Smooth Sliding
+  # New method : Smooth Sliding [:sm_slide,]
   # --------------------------------------------------------------------------
   def setup_smooth_slide
     tx = @acts[1] + x || 0
@@ -1876,7 +2028,7 @@ class Game_Battler < Game_BattlerBase
     smooth_move(tx,ty,dur,rev)
   end
   # --------------------------------------------------------------------------
-  # New method : Smooth Move to target
+  # New method : Smooth Move to target [:sm_target,]
   # --------------------------------------------------------------------------
   def setup_smooth_move_target
     if area_flag
@@ -1892,13 +2044,14 @@ class Game_Battler < Game_BattlerBase
     return unless target
     tx = @acts[1] + target.x || 0
     ty = @acts[2] + target.y || 0
+    tx *= -1 if flip
     dur = @acts[3] || 25
     rev = @acts[4]
     rev = true if rev.nil?
     smooth_move(tx,ty,dur,rev)
   end
   # --------------------------------------------------------------------------
-  # New method : Smooth return
+  # New method : Smooth return [:sm_return,]
   # --------------------------------------------------------------------------
   def setup_smooth_return
     tx = @ori_x
@@ -1909,7 +2062,7 @@ class Game_Battler < Game_BattlerBase
     smooth_move(tx,ty,dur,rev)
   end
   # --------------------------------------------------------------------------
-  # New method : Setup loop
+  # New method : Setup loop [:loop,]
   # --------------------------------------------------------------------------
   def setup_loop
     return TSBS.error(@acts[0], 2, @used_sequence) if @acts.size < 3
@@ -1921,7 +2074,7 @@ class Game_Battler < Game_BattlerBase
     end
   end
   # --------------------------------------------------------------------------
-  # New method : Setup 'while' mode loop
+  # New method : Setup 'while' mode loop [:while]
   # --------------------------------------------------------------------------
   def setup_while
     return TSBS.error(@acts[0], 2, @used_sequence) if @acts.size < 3
@@ -1931,16 +2084,20 @@ class Game_Battler < Game_BattlerBase
     if actions.nil?
       show_action_error(action_key)
     end
-    while eval(cond)
-      exe_act = actions.clone
-      until exe_act.empty?
-        @acts = exe_act.shift
-        execute_sequence
+    begin
+      while eval(cond)
+        exe_act = actions.clone
+        until exe_act.empty?
+          @acts = exe_act.shift
+          execute_sequence
+        end
       end
+    rescue StandardError => err
+      display_error("[#{SEQUENCE_WHILE},]",err)
     end
   end
   # --------------------------------------------------------------------------
-  # New method : Force action
+  # New method : Force action [:forced,]
   # --------------------------------------------------------------------------
   def setup_force_act
     return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
@@ -1949,33 +2106,55 @@ class Game_Battler < Game_BattlerBase
     target.force_change_battle_phase(:forced)
   end
   # --------------------------------------------------------------------------
-  # New method : Setup Switch Case
+  # New method : Setup Switch Case [:case,]
   # --------------------------------------------------------------------------
   def setup_switch_case
     return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
+    act_result = nil
     act_hash = @acts[1]
+    
+    # Get valid action key
     act_hash.each do |cond, action_key|
       bool = false
       begin
+        # Try to evaluate script
         bool = eval(cond)
       rescue StandardError => err
-        display_error("[:case,]",err)
+        # Blame script user if error :v
+        display_error("[#{SEQUENCE_CASE},]",err)
       end
-      next unless bool
-      @acts = (action_key.is_a?(Array) ? action_key : [:action, action_key])
+      next unless bool # If condition valid
+      act_result = action_key # Assign action key
+      break # Break loop checking
+    end
+    # Evaluate action key
+    return unless act_result
+    is_array = act_result.is_a?(Array)
+    # If nested array (triggered if first element is array)
+    if is_array && act_result[0].is_a?(Array)
+      act_result.each do |action|
+        next unless action.is_a?(Array)
+        @acts = action
+        execute_sequence
+      end
+    # If normal array
+    elsif is_array
+      @acts = act_result
       execute_sequence
-      break
+    else
+      @acts = [:action, act_result]
+      execute_sequence
     end
   end
   # --------------------------------------------------------------------------
-  # New method : Setup Switch Case
+  # New method : Setup Instant Reset [:instant_reset,]
   # --------------------------------------------------------------------------
   def setup_instant_reset
-    reset_pos(1)
-    update_move
+    reset_pos(1)  # Reset position
+    update_move   # Update move as well
   end
   # --------------------------------------------------------------------------
-  # New method : Setup change carried skill
+  # New method : Setup change carried skill [:change_skill,]
   # --------------------------------------------------------------------------
   def setup_change_skill
     skill = $data_skills[@acts[1]]
@@ -1983,7 +2162,7 @@ class Game_Battler < Game_BattlerBase
     self.item_in_use = copy(skill)
   end
   # --------------------------------------------------------------------------
-  # New method : Method for wait
+  # New method : Method for wait [:wait,]
   # --------------------------------------------------------------------------
   def method_wait
     Fiber.yield
@@ -2052,10 +2231,12 @@ class Game_Battler < Game_BattlerBase
   # New method : Addons... if anyone is interested
   # --------------------------------------------------------------------------
   def custom_sequence_handler
-    # For addon maybe ?
+    # For addon ...
   end
   # --------------------------------------------------------------------------
   # New method : User error handler
+  # Because I don't want to be the one who is being blamed because if your
+  # obvious fault
   # --------------------------------------------------------------------------
   def rescued_error
     ErrorSound.play
@@ -2067,7 +2248,7 @@ class Game_Battler < Game_BattlerBase
       "Error occured on #{klass} in ID #{id}\n" +
       "Undefined sequence key \"#{seq_key}\" for #{phase} phase\n\n" +
       "This is your fault. Not this script error!"
-    msgbox result
+    raise result
     exit
   end
   # --------------------------------------------------------------------------
@@ -2077,7 +2258,7 @@ class Game_Battler < Game_BattlerBase
     ErrorSound.play
     text = "Sequence key : #{phase_sequence[battle_phase].call}\n" + 
     "Uninitalized Constant for #{string} in :action mode"
-    msgbox text
+    raise text
     exit
   end
   # --------------------------------------------------------------------------
@@ -2096,32 +2277,38 @@ class Game_Battler < Game_BattlerBase
     return if user == self
     return if busy?
     if item.damage.recover? || item.damage.type == 0
-      self.battle_phase = :idle # Refresh idle key
+      self.battle_phase = :idle 
+      # Refresh idle key. In case if there is any state change or 
+      # HP rate change
       return
     end
     self.battle_phase = :hurt if @result.hit?
+    # Automatically switch to hurt phase
     if @result.evaded
       Sound.tsbs_play_eva
       self.battle_phase = :evade 
+      # Automatically switch to evade phase
     end
   end
   # --------------------------------------------------------------------------
   # New method : Get state tone
   # --------------------------------------------------------------------------
   def state_tone
+    result = nil
     states.each do |state|
-      return state.tone if state.tone
+      result = state.tone if state.tone
     end
-    return EmptyTone
+    return result || EmptyTone
   end
   # --------------------------------------------------------------------------
   # New method : Get state color
   # --------------------------------------------------------------------------
   def state_color
+    result = nil
     states.each do |state|
-      return state.color if state.color
+      result = state.color if state.color
     end
-    return EmptyColor
+    return result || EmptyColor
   end
   # --------------------------------------------------------------------------
   # New method : Get animation guard
@@ -2173,12 +2360,14 @@ class Game_Battler < Game_BattlerBase
   # --------------------------------------------------------------------------
   def screen_z_formula
     return real_ypos + additional_z rescue 0
+    # Real Y position (without jumping) + Additional Z value
   end
   # --------------------------------------------------------------------------
   # New method : Additional Z Formula
   # --------------------------------------------------------------------------
   def additional_z
     battle_phase == :idle || battle_phase == :hurt ?  0 : 1
+    # Action battler displayed above another (increment by 1)
   end
   # --------------------------------------------------------------------------
   # Alias method : Add state
@@ -2188,8 +2377,9 @@ class Game_Battler < Game_BattlerBase
     tsbs_add_state(state_id)
     if battle_phase == :idle && @used_sequence != phase_sequence[:idle].call
       self.battle_phase = :idle
+      # Refresh action key if changed
     end
-    @refresh_opacity = true
+    @refresh_opacity = true # Refrech max opacity
   end
   # --------------------------------------------------------------------------
   # Alias method : Remove state
@@ -2199,8 +2389,9 @@ class Game_Battler < Game_BattlerBase
     tsbs_rem_state(state_id)
     if battle_phase == :idle && @used_sequence != phase_sequence[:idle].call
       self.battle_phase = :idle
+      # Refresh action key if changed
     end
-    @refresh_opacity = true
+    @refresh_opacity = true # Refresh max opacity
   end
   # --------------------------------------------------------------------------
   # New method : State Sequence
@@ -2219,7 +2410,9 @@ class Game_Battler < Game_BattlerBase
     tsbs_turn_end
     if $game_party.in_battle
       reset_pos(10, 0)
+      # Automatically reset position on turn end
       SceneManager.scene.check_collapse(self) 
+      # Check collapse for self
     end
   end
   # --------------------------------------------------------------------------
@@ -2230,14 +2423,15 @@ class Game_Battler < Game_BattlerBase
     tsbs_action_end
     if $game_party.in_battle
       SceneManager.scene.check_collapse(self) 
+      # Check collapse for self
     end
   end
   # --------------------------------------------------------------------------
-  # Alias method : Item Counter
+  # Alias method : Item Counterattack rate
   # --------------------------------------------------------------------------
   alias tsbs_counter item_cnt
   def item_cnt(user, item)
-    return 0 if item.anti_counter?
+    return 0 if item.anti_counter? || dead?
     tsbs_counter(user, item)
   end
   # --------------------------------------------------------------------------
@@ -2245,7 +2439,7 @@ class Game_Battler < Game_BattlerBase
   # --------------------------------------------------------------------------
   alias tsbs_reflect item_mrf
   def item_mrf(user, item)
-    return 0 if item.anti_reflect?
+    return 0 if item.anti_reflect? || user == self
     tsbs_reflect(user, item)
   end
   # --------------------------------------------------------------------------
@@ -2265,13 +2459,15 @@ class Game_Battler < Game_BattlerBase
     tsbs_hit(user, item)
   end
   # --------------------------------------------------------------------------
-  # Alias method : Counter skill id
+  # New method : Counter skill id
+  # Stored in array for future use. In case if you want to make addon (or such)
+  # For randomized counterattack skill
   # --------------------------------------------------------------------------
   def counter_skills_id
     [data_battler.counter_skill]
   end
   # --------------------------------------------------------------------------
-  # Alias method : Counter skill
+  # New method : Counter skill
   # --------------------------------------------------------------------------
   def make_counter_skill
     skill_id = counter_skills_id[rand(counter_skills_id.size)]
@@ -2345,12 +2541,16 @@ class Game_Actor < Game_Battler
   end
   # --------------------------------------------------------------------------
   # New method : Screen X
+  # Define sprite reposition formula here. Such as camera
+  # Do not ever change the :x
   # --------------------------------------------------------------------------
   def screen_x
     return x
   end
   # --------------------------------------------------------------------------
   # New method : Screen Y
+  # Define sprite reposition formula here. Such as camera
+  # Do not ever change the :y
   # --------------------------------------------------------------------------
   def screen_y
     return y
@@ -2369,6 +2569,7 @@ class Game_Actor < Game_Battler
   end
   # --------------------------------------------------------------------------
   # New method : Actor's battler bame
+  # Base Name + State Name + _index 
   # --------------------------------------------------------------------------
   def battler_name
     return "#{@battler_name+state_trans_name}_#{battler_index}"
@@ -2405,6 +2606,32 @@ class Game_Actor < Game_Battler
   def init_oripost
     @ori_x = original_x
     @ori_y = original_y
+  end
+  # --------------------------------------------------------------------------
+  # Alias method : Attack skill ID
+  # --------------------------------------------------------------------------
+  alias tsbs_atk_id attack_skill_id
+  def attack_skill_id
+    return sort_states.find {|state| $data_states[state].attack_id > 0} if 
+      sort_states.any?{ |state| $data_states[state].attack_id > 0}
+    return weapons[0].attack_id if weapons[0] ? weapons[0].attack_id > 0 : 
+      false
+    return $data_classes[class_id].attack_id if 
+      $data_classes[class_id].attack_id > 0
+    return $data_actors[id].attack_id if $data_actors[id].attack_id > 0
+    return tsbs_atk_id
+  end
+  # --------------------------------------------------------------------------
+  # Alias method : Guard skill ID
+  # --------------------------------------------------------------------------
+  alias tsbs_grd_id guard_skill_id
+  def guard_skill_id
+    return sort_states.find {|state| $data_states[state].guard_id > 0} if 
+       sort_states.any? { |state| $data_states[state].guard_id > 0}
+    return $data_classes[class_id].guard_id if 
+    $data_classes[class_id].guard_id > 0
+    return $data_actors[id].guard_id if $data_actors[id].guard_id > 0
+    return tsbs_grd_id
   end
   
 end
@@ -2633,6 +2860,7 @@ class Sprite_AnimState < Sprite_Base
       @ani_duration = @animation.frame_max * @ani_rate + 1
       @ani_sprites.each {|s| s.dispose }
       make_animation_sprites
+      animation_set_sprites(@animation.frames[0])
     elsif !anim.nil?
       start_animation(anim)
     else
@@ -2643,7 +2871,7 @@ class Sprite_AnimState < Sprite_Base
   # * Visibility case
   # --------------------------------------------------------------------------
   def visible_case
-    @spr_battler.opacity > 0
+    @spr_battler.opacity > 0 && @spr_battler.visible
   end
   # --------------------------------------------------------------------------
   # * Overwrite animation set sprites
@@ -2990,7 +3218,7 @@ class Sprite_Battler < Sprite_Base
   # New method : update battler color
   # --------------------------------------------------------------------------
   def update_color
-    self.color.set(@battler.state_color)
+    self.color.set(@battler.state_color) if @color_flash.alpha == 0
   end
   # --------------------------------------------------------------------------
   # New method : update battler opacity
@@ -3218,6 +3446,13 @@ class Sprite_Battler < Sprite_Base
     self.x = @battler.screen_x
     self.y = @battler.screen_y
   end
+  
+  alias tsbs_color_flash flash
+  def flash(color, duration)
+    self.color.set(EmptyColor)
+    tsbs_color_flash(color, duration)
+  end
+  
 end
 
 #==============================================================================
@@ -3381,7 +3616,7 @@ class Sprite_Projectile < Sprite_Base
   def repel
     temp = subject
     if random_reflect? # Random target reflect if skill/item allow to do so
-      temp = temp.friends_unit.members.shuffle[0]
+      temp = temp.friends_unit.alive_members.shuffle[0]
     end
     self.subject = target
     self.target = temp
