@@ -16,9 +16,12 @@ How to install :
 ====
 Put the script in these order in your RPG Maker VX Ace script editor
 - Basic Modules v1.5b
-- Introduction
+- Instructions
 - Config 1 - General
 - Config 2 - Sequence
 - Implementation v1.3
 
 Then read the instruction. I do have plan to make wiki about how to install and such complete with example image / screenshots. Not sure though
+
+## Note
+For the default move, I used kaduki move addon. So make sure you also take the move addon. It's located on addons
