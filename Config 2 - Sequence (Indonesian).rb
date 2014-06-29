@@ -4,7 +4,7 @@
 # Contact : www.rpgmakerid.com (or) http://theolized.blogspot.com
 # (This script documentation is written in informal indonesian language)
 # -----------------------------------------------------------------------------
-# Requires : Theo - Basic Modules v1.5
+# Requires : Theo - Basic Modules v1.5b
 # >> Basic Functions 
 # >> Movement    
 # >> Core Result
@@ -22,6 +22,7 @@
 # >> Sabakan - Ao no Kiseki
 # >> Fomar ATB
 # >> EST - Ring System
+# >> AEA - Charge Turn Battle
 # -----------------------------------------------------------------------------
 # Known Incompatibility :
 # >> YEA - Lunatic Object
@@ -118,7 +119,7 @@ module TSBS
   Default_Critical  = "K-pinch"   # Untuk gerakan saat kritis
   Default_Evade     = "K-evade"   # Untuk gerakan saat menghindar serangan
   Default_Hurt      = "K-hurt"    # Untuk gerakan saat terkena serangan
-  Default_Return    = "RESET"     # Untuk gerakan berpindah kembali ke tempat semula
+  Default_Return    = "RESET"     # Untuk gerakan kembali ke tempat semula
   Default_Dead      = "K-dead"    # Untuk gerakan saat K.O
   Default_Victory   = "K-victory" # Untuk gerakan saat menang
   Default_Escape    = "ESCAPE"    # Untuk gerakan saat kabur
@@ -224,24 +225,29 @@ module TSBS
   ], <-- komma juga!
   
   Keterangan :
-  - loop?
+  > loop?
     Apakah sequence tersebut akan looping? Gunakan true untuk idle, dead, atau 
     victory pose. Tidak akan bereffect untuk yang lain seperti skill.
     
-  - Afterimage?
+  > Afterimage?
     Apakah kamu akan menggunakan effect afterimage pada sequence tersebut?
     Jika true maka action sequence tersebut akan menggunakan afterimage.
     
-  - Flip?
+  > Flip?
     Apakah battler akan diflip / dibalik ? Jika true, maka battler akan 
     dibalik. Jika false, maka battler akan menghadap sesuai gambar aslinya. 
-    Jika nil, maka battler akan menyesuaikan nilai flip pada action sequence 
-    sebelumnya. Jika :ori, battler akan tergantung pada nilai flip aslinya
     
-  - :mode
+    Jika nil / kosong, maka battler akan menyesuaikan nilai flip pada action 
+    sequence sebelumnya. Namun hanya berlaku untuk saat menggunakan skill. 
+    
+    Jika nil / kosong untuk action sequence non-skill, battler akan menyesuaikan
+    posisi flip seperti aslinya (untuk actor, tidak diflip. Untuk enemy,
+    tergantung gimana kamu settingnya. Apa kamu pake tag <flip> ato ngga)
+    
+  > :mode
     Adalah mode dari list yang udah wa tulis diatas
     
-  - param1, param2
+  > param1, param2
     Adalah parameter dari masing-masing mode. Setiap mode mempunyai parameter
     berbeda. Jadi pastikan kamu baca dengan bener.
     
@@ -345,10 +351,14 @@ module TSBS
   Contoh :
   [:move_to_target, 130, 0, 25, 0],
   
-  Catatan :
+  Catatan 1:
   Jika battler diflip, maka koordinat X juga akan ikut diflip. Dalam artian
   jika x minus yang pada arti awalnya adalah geser ke kiri, maka akan berubah
   jadi geser ke kanan
+  
+  Catatan 2:
+  Jika target yang dituju adalah area (target area), maka battler akan bergerak
+  kearah tengah-tengah dari kumpulan target tersebut.
   
   ===========================================================================
   6)  :script   | Menjalankan script call
@@ -424,17 +434,20 @@ module TSBS
   ===========================================================================
   10) :cast   | Menjalankan animasi pada user
   ---------------------------------------------------------------------------
-  Format --> [:cast, anim_id, (flip)],
+  Format --> [:cast, (anim_id), (flip)],
   
   Keterangan :
-  Sama seperti show anim. Namun yang menjadi target adalah user. Anim_id
-  disini sifatnya wajib diisi. 
+  Sama seperti show anim. Namun yang menjadi target adalah user. Jika anim_id
+  diabaikan (nil), animasi yang akan dijalankan adalah animasi dari skill
+  yang digunakan.
   
   Flip adalah untuk membalik animasi. Jika true, maka animasi akan dibalik.
   Nilai defaultnya adalah sama dengan nilai flip pada battler
   
   Contoh :
+  [:cast], << menjalankan animasi sesuai dengan
   [:cast, 25],  << menjalankan animasi ID 25
+  [:cast, 25, true],  << menjalankan animasi ID 25 dengan dibalik
   
   ===========================================================================
   11) :visible   | Mengatur visibility battler
@@ -466,18 +479,20 @@ module TSBS
   ===========================================================================
   13) :flip   | Membalik battler sprite secara horizontal
   ---------------------------------------------------------------------------
-  Format --> [:flip, (option)],
+  Format --> [:flip, option],
   
   Keterangan :
   Ada tiga opsi untuk membalik battler sprite. Antara lain
   >> True     - Untuk dibalik
   >> False    - Untuk tidak dibalik / mengembalikan ke semula
   >> :toggle  - Untuk membalik tergantung pada keadaan sprite terakhir
+  >> :ori     - Untuk mereset sesuai nilai value default flip
   
   Contoh :
   [:flip, true],
   [:flip, false],
   [:flip, :toggle],
+  [:flip, :ori],
   
   ===========================================================================
   14) :action   | Memanggil pre-defined action
@@ -637,18 +652,29 @@ module TSBS
   
   --------------------
   Alternatif :
+  --------------------
   Jika kamu terlalu malas untuk membikin action sequence baru hanya untuk satu
   baris sequence, kamu bisa langsung menambahkan array [] di dalam percabangan. 
-  Dan ini hanya berlaku untuk satu barus sequence doang.
   
   Contoh :
   [:if, "$game_switches[1]", [:target_damage]],
   [:if, "$game_switches[1]", [:target_damage], [:user_damage]],
   
-  Catatan :
-  - Next update gw usahain ngga butuh action sequence baru. Jadi langsung
-    di dalem cabangnya
-    
+  --------------------
+  Alternatif lain :
+  --------------------
+  Jika kamu terlalu malas untuk membikin action sequence baru, kamu bisa
+  memasukkan sequence baru ke dalam cabang tanpa harus membuat action key
+  yang baru lagi.
+  
+  Contoh dari gerakan normal attack Soleil (sample game):
+  [:if,"target.result.hit?",
+    [ 
+    [:target_slide, -5, 0, 3, 0],
+    [:slide,-5, 0, 3, 0],
+    ],
+  ], 
+  
   ===========================================================================
   22) :timed_hit  | Fungsi timed hit (BETA)
   ---------------------------------------------------------------------------
@@ -668,6 +694,8 @@ module TSBS
   
   Contoh :
   [:timed_hit, 60],
+  [:wait, 60],  <-- Kamu bisa ganti ini dengan :pose
+  [:if, "@timed_hit", "Suppa-Attack"],
   
   Next update :
   Mungkin bakal gw tambahin ngga cuman confirm, tapi tombol2 lain seperti
@@ -729,7 +757,7 @@ module TSBS
   ===========================================================================
   24) :add_state  | Untuk add state pada target
   ---------------------------------------------------------------------------
-  Format --> [:add_state, state_id, chance],
+  Format --> [:add_state, state_id, (chance), (ignore_rate?)],
   
   Keterangan :
   Seperti namanya. Mode ini adalah untuk aplikasi state berdasar chance pada
@@ -737,15 +765,20 @@ module TSBS
   
   Parameter :
   state_id  >> ID state dalam database
-  chance    >> Chance / kesempatan. Tulis antara 1-100
+  chance    >> Chance / kesempatan. Tulis antara 1-100 atau 0.0 - 1.0. Jika 
+               kamu kosongkan, maka nilai defaultnya adalah 100
+  ignore_rate >> Untuk mengabaikan state rate pada features. Tulis antara true
+                 atau false. Jika kamu kosongkan, maka defaultnya adalah false
   
   Contoh :
+  [:add_state, 10],
   [:add_state, 10, 50],
+  [:add_state, 10, 50, true],
   
   ===========================================================================
   25) :rem_state  | Untuk remove state pada target
   ---------------------------------------------------------------------------
-  Format --> [:rem_state, state_id, chance],
+  Format --> [:rem_state, state_id, (chance)],
   
   Keterangan :
   Seperti namanya. Mode ini adalah untuk menghapus state berdasar chance pada
@@ -753,9 +786,11 @@ module TSBS
   
   Parameter :
   state_id  >> ID state dalam database
-  chance    >> Chance / kesempatan. Tulis antara 1-100
+  chance    >> Chance / kesempatan. Tulis antara 1-100 atau 0.0 - 1.0. Jika 
+               kamu kosongkan, maka nilai defaultnya adalah 100
   
   Contoh :
+  [:rem_state, 10],
   [:rem_state, 10, 50],
   
   ===========================================================================
@@ -778,7 +813,7 @@ module TSBS
   8   >> Next random ally
   9   >> Absolute random target for enemies
   10  >> Absolute random target for allies
-  11  >> Self
+  11  >> Diri sendiri
   
   Contoh :
   [:change_target, 0],
@@ -1175,7 +1210,8 @@ module TSBS
   y   >> Jarak perpindahan Y dari koordinat asli
   dur >> Durasi perjalanan
   rev >> Reverse. Jika kamu tulis true, maka sprite akan berjalan dari
-         kecepatan maksimum. Jika false, kecepatan dimulai dari 0
+         kecepatan maksimum. Jika false, kecepatan dimulai dari 0. Defaultnya
+         adalah true
          
   Contoh :
   [:sm_slide, 100,50,45],
@@ -1195,11 +1231,21 @@ module TSBS
   y   >> Jarak Y dari koordinat target
   dur >> Durasi perjalanan
   rev >> Reverse. Jika kamu tulis true, maka sprite akan berjalan dari
-         kecepatan maksimum. Jika false, kecepatan dimulai dari 0
+         kecepatan maksimum. Jika false, kecepatan dimulai dari 0. Defaultnya
+         adalah true
   
   Contoh :
   [:sm_target, 100,0,45],
   [:sm_target, 100,0,45,true],
+  
+  Catatan 1:
+  Jika battler diflip, maka koordinat X juga akan ikut diflip. Dalam artian
+  jika x minus yang pada arti awalnya adalah geser ke kiri, maka akan berubah
+  jadi geser ke kanan
+  
+  Catatan 2:
+  Jika target yang dituju adalah area (target area), maka battler akan bergerak
+  kearah tengah-tengah dari kumpulan target tersebut.
   
   ===========================================================================
   52) :sm_return | Untuk kembali ke posisi dengan halus 
@@ -1213,7 +1259,8 @@ module TSBS
   Parameter :
   dur >> Durasi perjalanan
   rev >> Reverse. Jika kamu tulis true, maka sprite akan berjalan dari
-         kecepatan maksimum. Jika false, kecepatan dimulai dari 0
+         kecepatan maksimum. Jika false, kecepatan dimulai dari 0. Defaultnya
+         adalah true
   
   Contoh :
   [:sm_return,30],
@@ -1329,9 +1376,9 @@ module TSBS
   
   --------------------------
   Alternatif :
+  --------------------------
   Jika kamu terlalu malas untuk membikin action sequence baru hanya untuk satu
-  baris sequence, kamu bisa langsung menambahkan array [] di dalamnya. Dan
-  ini hanya berlaku untuk satu barus sequence doang.
+  baris sequence, kamu bisa langsung menambahkan array [] di dalamnya. 
   
   Contoh : 
   [:case,{
@@ -1341,11 +1388,39 @@ module TSBS
     "true" => [:add_state,42],
   }],
   
+  --------------------------
+  Alternatif lain :
+  --------------------------
+  Jika kamu terlalu malas untuk membikin action sequence baru, kamu bisa
+  memasukkan sequence baru ke dalam cabang tanpa harus membuat action key
+  yang baru lagi.
+  
+  Contoh : 
+  [:case,{
+    "state?(44)" => [
+      [:show_anim, 1],
+      [:target_damage, 1],
+    ],
+    
+    "state?(43)" => [
+      [:show_anim, 1],
+      [:target_damage, 1],
+    ],
+    
+    "state?(42)" => [
+      [:show_anim, 1],
+      [:target_damage, 1],
+    ],
+    
+    "true" => [
+      [:show_anim, 1],
+      [:target_damage, 1],
+    ],
+  }],
+  
   Catatan :
   - Jika ada lebih kondisi yang benar, maka kondisi yang letaknya paling atas
     sendiri yang akan digunakan.
-  - Next update gw usahain ngga butuh action sequence baru. Jadi langsung
-    di dalem cabangnya
   
   ===========================================================================  
   59) :instant_reset | Untuk mereset posisi battler secara instant
