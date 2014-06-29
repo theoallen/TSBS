@@ -4,7 +4,7 @@
 # Contact : www.rpgmakerid.com (or) http://theolized.blogspot.com
 # (English Documentation)
 # -----------------------------------------------------------------------------
-# Requires : Theo - Basic Modules v1.5
+# Requires : Theo - Basic Modules v1.5b
 # >> Basic Functions 
 # >> Movement    
 # >> Core Result
@@ -86,7 +86,9 @@
   The number is for sequence setup. You will find it out later.
   If you wonder how the spriteset should be, find that out in "Config 1"
   
-  --------------------------------------------------------------------------
+  ==========================================================================
+                                NOTETAGGING!
+  ==========================================================================
   * ) ACTOR NOTETAGS :
   --------------------------------------------------------------------------
   Use these tags in actor notebox :
@@ -123,8 +125,20 @@
   critical : Eric_CRI
   </sideview>
   
-  -----------------------
-  Notetag for counterattack
+  --------------------------------------------------------------------------
+  NOTETAG FOR NORMAL ATTACK AND GUARD
+  <attack: id>
+  <guard: id>
+  
+  By default, attack skill and guard id are 1 and 2. But you could set them
+  manually for each actor. So, by using the notetags above, actor could have 
+  unique attack skill id. Example
+  
+  <attack: 3>
+  <guard: 4>
+  
+  --------------------------------------------------------------------------
+  NOTETAG FOR COUNTERATTACK SKILL
   <counter skill: id>
   
   By default, actor's counter skill is 1. You can replace it by insert this 
@@ -132,13 +146,13 @@
   
   <counter skill: 4>
   
-  -----------------------
-  Notetag for magic reflection
+  --------------------------------------------------------------------------
+  NOTETAG FOR MAGIC REFLECTION ANIMATION
   <reflect anim: id>
   
   An animation that will be played during magic reflection on magic victim.
   
-  --------------------------------------------------------------------------
+  ==========================================================================
   * ) ENEMY NOTETAGS :
   --------------------------------------------------------------------------
   
@@ -166,8 +180,8 @@
   So, it will use these image file names :
   slime_1, slime_2, slime_3 etc ...
   
- -----------------------
-  Notetag for counterattack
+ --------------------------------------------------------------------------
+  NOTETAG FOR COUNTERATTACK SKILL
   <counter skill: id>
   
   By default, enemy's counter skill is 1. You can replace it by insert this 
@@ -175,13 +189,42 @@
   
   <counter skill: 4>
   
-  -----------------------
-  Notetag for magic reflection
+  --------------------------------------------------------------------------
+  NOTETAG FOR MAGIC REFLECTION ANIMATION
   <reflect anim: id>
   
   An animation that will be played during magic reflection on magic victim.
   
   --------------------------------------------------------------------------
+  NOTETAG UNTUK BATTLER FLIP
+  
+  For some enemy graphics, the original direction face is left. Such as
+  kaduki sprites. And if you want it to be flipped, you could use this tag
+  <flip>
+  
+  ==========================================================================
+  * ) WEAPON AND CLASS NOTETAGS :
+  --------------------------------------------------------------------------
+  NOTETAG FOR NORMAL ATTACK AND GUARD
+  <attack: id>
+  <guard: id>
+  
+  By default, attack skill and guard id are 1 and 2. But you could set them
+  manually for each class or weapons. So, normal attack would change if actor
+  changing the class or wielding a different weapon. Example :
+  
+  <attack: 3>
+  <guard: 4>
+  
+  Note :
+  1. Class attack ID priority is higher than actor
+  2. Weapon attack ID priority is higher than class. In other word,
+     preferred attack ID will be picked from weapon than class even though both
+     has same notetags
+  3. If character is dual wield, attack ID is taken from the first weapon
+     (or if you have better idea, tell me)
+  
+  ==========================================================================
   * ) SKILL / ITEM NOTETAGS :
   --------------------------------------------------------------------------
   Use this tag to set preparation sequence before the skill is executed
@@ -197,7 +240,7 @@
   sequence, the result will be randomized. In other means, that you could have 
   three  different sequence on skill/item
   
-  ----------------------------
+  --------------------------------------------------------------------------
   AREA DAMAGE :
   
   <area>
@@ -206,7 +249,7 @@
   <area> tag in skill/item notebox, the action sequence will be executed one 
   time.
   
-  ----------------------------
+  --------------------------------------------------------------------------
   NO RETURN SEQUENCE :
   
   <no return>
@@ -215,7 +258,7 @@
   necessary. So, you can add <no return> tag to your skill/item notebox to
   prevent calling return sequence.
   
-  ----------------------------
+  --------------------------------------------------------------------------
   ABSOLUTE TARGETING :
   
   <abs-target>
@@ -223,7 +266,7 @@
   two random target is really absolute, which mean that the targeted enemy
   won't be attacked twice, you can add <abs-target> tag in skill/item notebox
   
-  ----------------------------
+  --------------------------------------------------------------------------
   MAGIC REFLECT ANIMATION :
   
   By default, an animation that will be played to magic caster during magic
@@ -231,7 +274,7 @@
   another animation, you can use this tag
   <reflect anim: id>
   
-  ----------------------------
+  --------------------------------------------------------------------------
   PARALLEL ANIMATION :
   
   By default, animation that will be played on target when the target has 
@@ -239,7 +282,7 @@
   in order to play both in parallel, input this tag
   <parallel anim>
   
-  ----------------------------
+  --------------------------------------------------------------------------
   RANDOM TARGET REFLECTION :
   
   By default, target of the magic reflection is the magic attacker itself. If
@@ -260,7 +303,7 @@
   What is skill guard and animation guard anyway?
   Read it below
   
-  --------------------------------------------------------------------------
+  ==========================================================================
   * ) STATE NOTETAGS :
   --------------------------------------------------------------------------
   State Tone & Color :
@@ -338,17 +381,31 @@
   <animation: id>
   
   -----------------------------------------------------------------------------
-  * ) Terms of use :
-  -----------------------------------------------------------------------------
-  Credit me, TheoAllen. You are free to edit this script by your own. As long
-  as you don't claim it yours. For commercial purpose, don't forget to give me
-  a free copy of the game.
-
-  This script also licensed as General Public License. It means that you can
-  also modify, make derivation based on my script. As long as you give me
-  a proper credit and do not sell the script.
+  State Transformation :
+  -------------------------
+  Request from a dear friend, and also as my idea to add this feature. If 
+  battler under influence of a certain skill, then the graphic could be changed
+  based on the state. i.e, transform to another form. Use this tag
+  <transform: name>
   
-  The means of "do not sell" the script is you took any monetary gain by 
-  editing my script. Such as making addon. Even a person willing to pay you
+  Where the "name" is an additional name placed after battler name. Example :
+  - Battler name is Eric_1
+  - You have a state tagged with <transform: -dragon>
+  - Then the new graphic filename must be exist is Eric-dragon_1
+  
+  Note :
+  If there're many transformation states, the one which has top priority will
+  be used
+  
+  -----------------------------------------------------------------------------
+  State basic actions modification :
+  -------------------------
+  Same as notetag for normal attack and guard. State could modify basic action
+  for actor as well. And state has the higher priority over the others. So,
+  attack ID will be taken from state if there's any
+  
+  Use this following notetag :
+  <attack: id>
+  <guard: id>
   
 =end
