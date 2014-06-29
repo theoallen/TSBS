@@ -4,13 +4,14 @@
 # Contact : www.rpgmakerid.com (or) http://theolized.blogspot.com
 # Some translation by : CielScarlet
 # -----------------------------------------------------------------------------
-# Requires : Theo - Basic Modules v1.5
+# Requires : Theo - Basic Modules v1.5b
 # >> Basic Functions 
 # >> Movement    
 # >> Core Result
 # >> Core Fade
 # >> Clone Image
 # >> Rotate Image
+# >> Smooth Movement
 # =============================================================================
 # Script info :
 # -----------------------------------------------------------------------------
@@ -21,6 +22,7 @@
 # >> Sabakan - Ao no Kiseki
 # >> Fomar ATB
 # >> EST - Ring System
+# >> AEA - Charge Turn Battle
 # -----------------------------------------------------------------------------
 # Known Incompatibility :
 # >> YEA - Lunatic Object
@@ -205,6 +207,8 @@ module TSBS  # <-- don't touch
   57) :anim_bottom      >> Play animation behind battler
   58) :case             >> Branched action condition more than 2
   59) :instant_reset    >> Instantly reset battler position
+  60) :anim_follow      >> Make animation follow battler
+  61) :change_skill     >> Change carried skill for easier use
   
   ===========================================================================
   *) create an action sequence
@@ -221,24 +225,29 @@ module TSBS  # <-- don't touch
   ], <-- comma too!
  
   Note :
-  - loop?
+  > loop?
     will the sequence looping? use true for idle, dead, or
     victory pose. Not effect on skill or else.
    
-  - Afterimage?
+  > Afterimage?
     use afterimage on the sequence?
     when true the skill will use afterimage.
    
-  - Flip?
+  > Flip?
     Will the battler flipped ? when true battler will be flipped. when false, 
     battler won't be flipped.
-    When nil, battler will adjust itself to flip value from previous action 
-    sequence.
+    
+    When nil / empty, battler will adjust itself to flip value from previous 
+    action sequence. Only apply for skill sequence though
+    
+    When nil / empty for non-skill action sequence, battler will adjust itself
+    to original value (actor won't be flipped. Enemy is depends on how do you
+    set them up. Do you put <flip> tag or not)
    
-  - :mode
+  > :mode
     Sequence mode which I already wrote above
    
-  - param1, param2
+  > param1, param2
     parameter of each mode. each mode has different parameters
     make sure you read it carefully.
     
@@ -339,10 +348,14 @@ module TSBS  # <-- don't touch
   Example :
   [:move_to_target, 130, 0, 25, 0],
   
-  Note :
+  Note 1:
   If battler is flipped, then X coordinate will be flipped as well. In other
-  word, regulary minus value of x means to be left. If battler flipped, then
-  it means to be right (uh, I hope u understand what I'm trying to say)
+  word, minus value of x means to be left. If battler flipped, then it means to 
+  be right (uh, I hope u understand what I'm trying to say)
+  
+  Note 2:
+  If the target is area attack, then the action battler will move to the center
+  of the targets
   
   ===========================================================================
   6)  :script   | Run a script call
@@ -415,17 +428,19 @@ module TSBS  # <-- don't touch
   ===========================================================================
   10) :cast   | Run animation on user
   ---------------------------------------------------------------------------
-  Format --> [:cast, anim_id], (flip),
+  Format --> [:cast, (anim_id), (flip)]
  
   Note :
-  Like show anim. But the target is user. Anim_id on this part must be filled.
+  Like show anim. But the target is user. if anim_id is commited or nil, it
+  is same as skill animation in database
   
   Flip is to flip animation which gonna be played. Default is same as battler
   flip value
  
   example :
+  [:cast],  << Run animation from used skill / item
   [:cast, 25],  << Run animation ID 25 from database
-  [:cast, 25, true],  << Run animation ID 25 from database
+  [:cast, 25, true],  << Run animation ID 25 from database and flip the anim
   
   ===========================================================================
   11) :visible   | Set up battler visibility
@@ -618,6 +633,33 @@ module TSBS  # <-- don't touch
   [:if, "$game_switches[1]", "Suppa-Attack"],
   [:if, "$game_switches[1]", "Suppa-Attack","Normal-Attack"],
   
+  --------------------
+  Alternative :
+  --------------------
+  If you don't want to make a new action sequence only for single sequence, you
+  could directly put a new array inside branched condition
+  
+  
+  Example :
+  [:if, "$game_switches[1]", [:target_damage]],
+  [:if, "$game_switches[1]", [:target_damage], [:user_damage]],
+  
+  --------------------
+  Another alternative :
+  --------------------
+  If you don't want to make a new action sequence only for branched sequence,
+  you could put new sequence directly on the branch without making new action
+  key sequence.
+  
+  
+  Example, taken from Soleil normal attack (sample game):
+  [:if,"target.result.hit?",
+    [ 
+    [:target_slide, -5, 0, 3, 0],
+    [:slide,-5, 0, 3, 0],
+    ],
+  ], 
+  
   ===========================================================================
   22) :timed_hit  | Built-in timed hit function
   ---------------------------------------------------------------------------
@@ -629,7 +671,7 @@ module TSBS  # <-- don't touch
   Like a skill damage become double.
  
   This mode must be followed by [:if] where parameter is
-  [:if, "@timed_hit", "Suppa-Attack"]
+  [:if, "@timed_hit", "Suppa-Attack"],
  
   Parameters :
   Count is a timing chance for player to hit confirm / C in frames.
@@ -637,6 +679,8 @@ module TSBS  # <-- don't touch
  
   Example :
   [:timed_hit, 60],
+  [:wait, 60],  <-- You could change it to :pose
+  [:if, "@timed_hit", "Suppa-Attack"],
  
   Next update :
   I might add other button beside C/Confirm like
@@ -698,33 +742,37 @@ module TSBS  # <-- don't touch
   ===========================================================================
   24) :add_state  | Add state on target
   ---------------------------------------------------------------------------
-  Format --> [:add_state, state_id, (chance)],
+  Format --> [:add_state, state_id, (chance), (ignore_rate?)],
   
   Note :
   Like the name. This mode to apply state based on chance on target.
   
   Parameters :
   state_id  >> State id from database
-  chance    >> Chance / opportunity. write between 1-100. The default is 100
-               if ommited
- 
+  chance    >> Chance / opportunity. write between 1 ~ 100 or 0.0 ~ 1.0. The
+               default value is 100 if ommited
+  ignore_rate >> To ignore state rate features from database. Pick between true
+                 or false. The default is false if ommited
   Example :
+  [:add_state, 10],
   [:add_state, 10, 50],
+  [:add_state, 10, 50, true],
   
   ===========================================================================
   25) :rem_state  | Remove state on target
   ---------------------------------------------------------------------------
-  Format --> [:rem_state, state_id, chance],
+  Format --> [:rem_state, state_id, (chance)],
   
   Note :
   Like the name. This mode to remove state based on chance on target.
  
   Parameter :
   state_id  >> State id from database
-  chance    >> Chance / opportunity. write between 1-100. The default is 100
-               if ommited
+  chance    >> Chance / opportunity. write between 1-100. or 0.0 ~ 1.0. The
+               default value is 100 if ommited
  
   Example :
+  [:rem_state, 10],
   [:rem_state, 10, 50],
   
   ===========================================================================
@@ -1123,7 +1171,8 @@ module TSBS  # <-- don't touch
   y   >> Y coordinate destination
   dur >> Travel duration in frames
   rev >> Reverse. If you set it true, sprite will be move at maximum speed. 
-         While false, sprite will be move at 0 velocity. Default is true
+         While false, sprite will be move start from 0 velocity. Default value
+         is true
          
   Example :
   [:sm_move, 100,50,45],
@@ -1143,7 +1192,8 @@ module TSBS  # <-- don't touch
   y   >> Y displacement from origin coordinate
   dur >> Travel duration in frames
   rev >> Reverse. If you set it true, sprite will be move at maximum speed. 
-         While false, sprite will be move at 0 velocity
+         While false, sprite will be move start from 0 velocity. Default value
+         is true
          
   Example :
   [:sm_slide, 100,50,45],
@@ -1163,11 +1213,21 @@ module TSBS  # <-- don't touch
   y   >> Y displacement from target
   dur >> Travel duration in frames
   rev >> Reverse. If you set it true, sprite will be move at maximum speed. 
-         While false, sprite will be move at 0 velocity
+         While false, sprite will be move start from 0 velocity. Default value
+         is true
   
   Example :
   [:sm_target, 100,0,45],
   [:sm_target, 100,0,45,true],
+  
+  Note 1:
+  If battler is flipped, then X coordinate will be flipped as well. In other
+  word, minus value of x means to be left. If battler flipped, then it means to 
+  be right (uh, I hope u understand what I'm trying to say)
+  
+  Note 2:
+  If the target is area attack, then the action battler will move to the center
+  of the targets
   
   ===========================================================================
   52) :sm_return | Smooth move back to original position
@@ -1181,7 +1241,8 @@ module TSBS  # <-- don't touch
   Parameter :
   dur >> Travel duration in frames
   rev >> Reverse. If you set it true, sprite will be move at maximum speed. 
-         While false, sprite will be move at 0 velocity
+         While false, sprite will be move start from 0 velocity. Default value
+         is true
   
   Example :
   [:sm_return,30],
@@ -1292,6 +1353,50 @@ module TSBS  # <-- don't touch
     "$game_variables[1] == 5" => "Action5",
   }],
   
+  --------------------
+  Alternative :
+  --------------------
+  If you don't want to make a new action sequence only for single sequence, you
+  could directly put a new array inside branched condition.
+  
+  Example :
+    [:case,{
+    "state?(44)" => [:add_state,45],
+    "state?(43)" => [:add_state,44],
+    "state?(42)" => [:add_state,43],
+    "true" => [:add_state,42],
+  }],
+  
+  --------------------
+  Another alternative :
+  --------------------
+  If you don't want to make a new action sequence only for branched sequence,
+  you could put new sequence directly on the branch without making new action
+  key sequence.
+  
+  Example :
+  [:case,{
+    "state?(44)" => [
+      [:show_anim, 1],
+      [:target_damage, 1],
+    ],
+    
+    "state?(43)" => [
+      [:show_anim, 1],
+      [:target_damage, 1],
+    ],
+    
+    "state?(42)" => [
+      [:show_anim, 1],
+      [:target_damage, 1],
+    ],
+    
+    "true" => [
+      [:show_anim, 1],
+      [:target_damage, 1],
+    ],
+  }],
+  
   Another note :
   If there are more than one condition which are true, then the top condition
   will be used.
@@ -1306,6 +1411,47 @@ module TSBS  # <-- don't touch
   
   Example :
   [:instant_reset],
+
+  ===========================================================================  
+  60) :anim_follow | Make animation follow battler
+  ---------------------------------------------------------------------------
+  Format --> [:anim_follow]
+  
+  Note :
+  Like [:anim_top]. But it will make the next animation to follow the battler
+  where it goes. Call right before [:cast] or [:show_anim]
+  
+  
+  Example :
+  [:anim_follow],
+  [:cast, 69],
+  
+  [:anim_follow],
+  [:show_anim],
+  
+  Won't works for screen animation
+
+  ===========================================================================  
+  61) :change_skill | Change carried skill for easier use
+  ---------------------------------------------------------------------------
+  Format --> [:change_skill, id]
+  
+  Note :
+  More like [:target_damage, id]. But it doesn't deal damage. Instead, it will
+  change carried skill from battler. i.e, you could rescale it the damage
+  output or even change the attack formula.
+  
+  Example :
+  [:change_skill, 13],
+  [:target_damage, 0.5],
+  [:wait, 15],
+  [:target_damage, 1.5],
+  [:wait, 15],
+  [:target_damage, 0.5],
+  [:wait, 15],
+  
+  Damage output rescale from different skill id couldn't be done by regular 
+  [:target_damage]. By calling this skill, now you could
 
 =end
 # =============================================================================
