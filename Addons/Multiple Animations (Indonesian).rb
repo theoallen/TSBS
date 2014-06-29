@@ -1,6 +1,6 @@
 # =============================================================================
 # Theolized Sideview Battle System (TSBS) - Multiple Animations
-# Version : 1.0
+# Version : 1.1
 # Contact : www.rpgmakerid.com (or) http://theolized.blogspot.com
 # (This script documentation is written in informal indonesian language)
 # -----------------------------------------------------------------------------
@@ -11,6 +11,7 @@
 # =============================================================================
 # Change Logs:
 # -----------------------------------------------------------------------------
+# 2014.06.23 - Multiple animation on anim guard
 # 2014.05.13 - Fixed wrong animation flash target
 # 2014.05.02 - Finished script
 # =============================================================================
@@ -164,6 +165,46 @@ class Sprite_Battler
   def initialize(viewport, battler = nil)
     @multianimes = []
     tsbs_multianim_init(viewport, battler)
+  end
+  
+  def start_animation(anime, flip = false)
+    spr_anim = Sprite_MultiAnime.new(viewport, self, anime, flip)
+    multianimes.push(spr_anim)
+  end
+  
+  alias tsbs_multianim_update update
+  def update
+    tsbs_multianim_update
+    multianimes.delete_if do |anime|
+      anime.update
+      anime.disposed?
+    end
+  end
+  
+  alias tsbs_multianim_dispose dispose
+  def dispose
+    tsbs_multianim_dispose
+    multianimes.each do |anime|
+      anime.dispose
+    end
+  end
+  
+  def animation?
+    !multianimes.empty?
+  end
+  
+  def update_animation
+  end  
+  
+end
+
+class Sprite_AnimGuard
+  attr_reader :multianimes
+  
+  alias tsbs_multianim_init initialize
+  def initialize(spr_battler, vport = nil)
+    @multianimes = []
+    tsbs_multianim_init(spr_battler, vport)
   end
   
   def start_animation(anime, flip = false)
