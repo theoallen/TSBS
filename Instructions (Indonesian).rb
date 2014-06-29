@@ -4,7 +4,7 @@
 # Contact : www.rpgmakerid.com (or) http://theolized.blogspot.com
 # (This script documentation is written in informal indonesian language)
 # -----------------------------------------------------------------------------
-# Requires : Theo - Basic Modules v1.5
+# Requires : Theo - Basic Modules v1.5b
 # >> Basic Functions 
 # >> Movement    
 # >> Core Result
@@ -22,6 +22,7 @@
 # >> Sabakan - Ao no Kiseki
 # >> Fomar ATB
 # >> EST - Ring System
+# >> AEA - Charge Turn Battle
 # -----------------------------------------------------------------------------
 # Known Incompatibility :
 # >> YEA - Lunatic Object
@@ -53,6 +54,7 @@
   
   Sorry, gw akuin TSBS emang sepertinya ribet banget untuk dipake. Dan disamping
   wa juga ga bisa nerangin semuanya secara jelas m(_ _)m
+  
   --------------------------------------------------------------------------
   * ) Cara menginstall :
   --------------------------------------------------------------------------
@@ -61,7 +63,7 @@
   >> Config 2 - Sequence
   >> Implementation
   
-  Letakkan script Theo - Basic Modules v1.4 (disarankan versi 1.4)
+  Letakkan script Theo - Basic Modules v1.5 (disarankan versi 1.5)
   paling atas. Jika kamu make YEA - Core atawa Battle Engine, taruh diatas
   script ini. Dan ingat, script ini juga harus diletakkan diatas "Main".
   
@@ -77,7 +79,9 @@
   
   Kegunaan angkanya ntar kamu bisa baca di keterangan action sequences
   
-  --------------------------------------------------------------------------
+  ==========================================================================
+                                NOTETAGGING!
+  ==========================================================================
   * ) ACTOR NOTETAGS :
   --------------------------------------------------------------------------
   Gunakan tag seperti ini dalam actor notetag :
@@ -114,8 +118,20 @@
   critical : Eric_CRI
   </sideview>
   
-  -----------------------
-  Notetag untuk skill counter
+  --------------------------------------------------------------------------
+  NOTETAG UNTUK NORMAL ATTACK DAN GUARD
+  <attack: id>
+  <guard: id>
+  
+  Secara default, id skill untuk attack dan guard secara beturut-turut adalah
+  1 dan 2. Namun kamu bisa spesifikasikan default normal attack untuk tiap
+  actor berbeda-beda dengan cara menggunakan tag diatas. Contoh :
+  
+  <attack: 3>
+  <guard: 4>
+  
+  --------------------------------------------------------------------------
+  NOTETAG UNTUK COUNTER SKILL
   <counter skill: id>
   
   Secara default, counter skill pada actor adalah 1. Kamu bisa menggantinya
@@ -123,14 +139,14 @@
   
   <counter skill: 4>
   
-  -----------------------
-  Notetag untuk animasi magic reflection
+  --------------------------------------------------------------------------
+  NOTETAG UNTUK ANIMASI MAGIC REFLECTION
   <reflect anim: id>
   
   Animasi yang akan diplay kepada korban serangan magic saat korban melakukan
   magic reflection
   
-  --------------------------------------------------------------------------
+  ==========================================================================
   * ) ENEMY NOTETAGS :
   --------------------------------------------------------------------------
   Gunakan tag seperti ini pada enemy jika kamu ingin enemy juga menggunakan
@@ -159,28 +175,51 @@
   Maka, enemy tersebut akan menggunakan file gambar yang bernama slime_1,
   slime_2, slime_3 dst ...
   
-  -----------------------
-  Notetag untuk skill counter
+  --------------------------------------------------------------------------
+  NOTETAG UNTUK COUNTER SKILL
   <counter skill: id>
   
   Secara default, counter skill pada actor adalah 1. Kamu bisa menggantinya
   dengan menulikan notetag misalnya
   
-  -----------------------
-  Notetag untuk animasi magic reflection
+  --------------------------------------------------------------------------
+  NOTETAG UNTUK ANIMASI MAGIC REFLECTION
   <reflect anim: id>
   
   Animasi yang akan diplay kepada korban serangan magic saat korban melakukan
   magic reflection.
   
-  -----------------------
-  Notetag untuk battler flip
+  --------------------------------------------------------------------------
+  NOTETAG UNTUK BATTLER FLIP
+  
+  Untuk beberapa enemy yang gambar aslinya menghadap kiri contohnya adalah
+  untuk sprite kaduki, dan kamu ingin ngebuatnya hadap kanan, gunakan tag 
   <flip>
   
-  Untuk beberapa enemy yang gambar aslinya menghadap kiri, dan kamu ingin
-  ngebuatnya hadap kanan, gunakan tag <flip>
-  
+  ==========================================================================
+  * ) WEAPON AND CLASS NOTETAGS :
   --------------------------------------------------------------------------
+  NOTETAG UNTUK NORMAL ATTACK DAN GUARD
+  <attack: id>
+  <guard: id>
+  
+  Secara default, id skill untuk attack dan guard secara beturut-turut adalah
+  1 dan 2. Namun kamu bisa spesifikasikan default normal attack untuk tiap
+  actor jika actor tersebut membawa senjata berbeda-beda atau berganti class
+  satu ke class yang lain
+  
+  <attack: 3>
+  <guard: 4>
+  
+  Catatan :
+  1. Prioritas attack ID class lebih tinggi dari actor.
+  2. Prioritas attack ID weapon lebih tinggi dari class. Dengan kata lain,
+     attack ID yang diutamakan adalah yang berasal dari weapon jika keduanya
+     sama-sama memiliki notetag
+  3. Jika karater dual wield, attack ID yang diutamakan adalah yang berasal
+     dari senjata pertama (jika ada usul yang lebih baik, silahkan)
+  
+  ==========================================================================
   * ) SKILL / ITEM NOTETAGS :
   --------------------------------------------------------------------------
   Gunakan tag seperti ini untuk mendefinisikan gerakan sebelum sequence
@@ -197,7 +236,7 @@
   maka skill tersebut akan memilih secara acak key yang kamu masukkan. Dengan
   kata lain, skill tersebut akan mempunyai tiga variasi sequence
   
-  ----------------------------
+  --------------------------------------------------------------------------
   AREA DAMAGE :
   
   Jika kamu menggunakan multitarget seperti 3 random enemies atau semacamnya,
@@ -205,7 +244,7 @@
   hal seperti itu, cukup tambahkan tag 
   <area>
   
-  ----------------------------
+  --------------------------------------------------------------------------
   NO RETURN SEQUENCE :
   
   Setiap skill / item setelah selesai dipakai, actor otomatis akan kembali
@@ -213,7 +252,7 @@
   kembali (seperti jika skill dilakukan ditempat). Maka kamu bisa masukkan tag 
   <no return>
   
-  ----------------------------
+  --------------------------------------------------------------------------
   ABSOLUTE TARGETING :
   
   Terkadang, random target bisa menyerang musuh yang sama. Jika kamu ingin
@@ -221,7 +260,7 @@
   yang sama), maka kamu bisa menggunakan tag
   <abs-target>
   
-  ----------------------------
+  --------------------------------------------------------------------------
   MAGIC REFLECT ANIMATION :
   
   Secara default, animasi yang akan diplay pada caster magic adalah sama 
@@ -231,7 +270,7 @@
   
   id adalah id animasi dari database
   
-  ----------------------------
+  --------------------------------------------------------------------------
   PARALLEL ANIMATION :
   
   Secara default, animasi yang akan diplay pada target saat target punya 
@@ -239,7 +278,7 @@
   keduanya bisa diplay bersamaan, gunakan tag
   <parallel anim>
   
-  ----------------------------
+  --------------------------------------------------------------------------
   RANDOM TARGET REFLECTION :
   
   Secara default, target magic reflection itu adalah penyerang dari magic
@@ -256,7 +295,7 @@
   <ignore skill guard>  || Aplikasi skill mengabaikan skill guard dari state
   <ignore anim guard>   || Play animasi skill mengabaikan anim guard dari state
   
-  --------------------------------------------------------------------------
+  ==========================================================================
   * ) STATE NOTETAGS :
   --------------------------------------------------------------------------
   State Tone & Color :
@@ -345,5 +384,16 @@
   Catatan :
   Jika ada state transformasi lebih dari satu, nama yang akan digunakan adalah
   dari state yang memiliki prioritas lebih tinggi di database
+  
+  -----------------------------------------------------------------------------
+  State basic actions modification :
+  -------------------------
+  Sama seperti notetag normal attack dan guard. State juga bisa mengubah basic
+  action dari actor. Prioritas state adalah lebih tinggi dibanding class
+  ataupun weapon. 
+  
+  Gunakan tag seperti berikut :
+  <attack: id>
+  <guard: id>
   
 =end
