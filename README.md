@@ -24,7 +24,7 @@ Put the script in these order in your RPG Maker VX Ace script editor. Below mate
 
 The order would be like this
 
-![TSBS script order](https://dl.dropboxusercontent.com/u/41797508/tsbswiki/start01.jpg
+![TSBS script order](https://dl.dropboxusercontent.com/u/41797508/tsbswiki/start01.jpg)
 Then read the instruction. I do have plan to make wiki about how to install complete with example images / screenshots. Not sure though
 
 ## Note
