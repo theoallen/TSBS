@@ -26,7 +26,7 @@ The order would be like this
 
 ![TSBS script order](https://dl.dropboxusercontent.com/u/41797508/tsbswiki/start01.jpg)
 
-Then read the instruction. I do have plan to make wiki about how to install complete with example images / screenshots. Not sure though
+[Read the wiki](https://github.com/theoallen/TSBS/wiki) for the full instruction. (WIP)
 
 ## Note
 - For the default move setting, I used [Kaduki Move Addon](https://github.com/theoallen/TSBS/blob/master/Addons/Kaduki%20Move%20Addon%20(English).rb). So make sure you also take the move addon.
