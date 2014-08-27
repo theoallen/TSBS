@@ -1,8 +1,16 @@
 # =============================================================================
 # Theolized Sideview Battle System (TSBS)
-# Version : 1.3
-# Contact : www.rpgmakerid.com (or) http://theolized.blogspot.com
-# English Translation by : Skourpy
+# Version : 1.3c
+# Language : English
+# Translated by : Skourpy
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Contact :
+#------------------------------------------------------------------------------
+# *> http://www.rpgmakerid.com
+# *> http://www.rpgmakervxace.net
+# *> http://theolized.blogspot.com
+#==============================================================================
+# Last updated : 2014.08.24
 # -----------------------------------------------------------------------------
 # Requires : Theo - Basic Modules v1.5b
 # >> Basic Functions 
@@ -13,29 +21,11 @@
 # >> Rotate Image
 # >> Smooth Movement
 # =============================================================================
-# Script info :
-# -----------------------------------------------------------------------------
-# Known Compatibility :
-# >> YEA - Core Engine
-# >> YEA - Battle Engine (RECOMMENDED!)
-# >> MOG Battle HUD
-# >> Sabakan - Ao no Kiseki
-# >> Fomar ATB
-# >> EST - Ring System
-# >> AEA - Charge Turn Battle
-# -----------------------------------------------------------------------------
-# Known Incompatibility :
-# >> YEA - Lunatic Object
-# >> Maybe, most of battle related scripts (ATB, or such...)
-# >> MOG Breathing script
-# =============================================================================
 # Terms of Use :
 # -----------------------------------------------------------------------------
 # Credit me, TheoAllen. You are free to edit this script by your own. As long
 # as you don't claim it yours. For commercial purpose, don't forget to give me
 # a free copy of the game.
-# =============================================================================
-($imported ||= {})[:TSBS] = true  # <-- don't edit this line ~
 # =============================================================================
 module TSBS 
   # ===========================================================================
