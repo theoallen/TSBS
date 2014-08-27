@@ -1,6 +1,6 @@
 # =============================================================================
 # TheoAllen - Basic Modules
-# Version : 1.5b
+# Version : 1.5c
 # Contact : www.rpgmakerid.com (or) http://theolized.blogspot.com
 # By : TheoAllen (Original Scripter)
 # =============================================================================
@@ -80,6 +80,9 @@ $imported[:Theo_SmoothMove]    = true  # Object Smooth Movement
 #                 - Fixed wrong target opacity in object core fade for Window
 #                 - Dispose afterimages from Sprite_Base
 # Version 1.5b    - Afterimage now followed by flashing sprite
+# Version 1.5c    - Fixed bug on object core fade.
+#                 - Remove core fade from window since it's absurb :v
+#                 - Compatibility with nickle's core
 # =============================================================================
 # RGSS3 ~ Bug Fixes (Taken from RMWeb.com)
 # forums.rpgmakerweb.com/index.php?/topic/1131-rgss3-unofficial-bugfix-snippets
@@ -124,10 +127,10 @@ end
 # process normal char bugfix
 # -----------------------------------------------------------------------------
 class Window_Base < Window
-  alias :process_normal_character_vxa :process_normal_character
+  alias :process_normal_character_theolized :process_normal_character
   def process_normal_character(c, pos)
     return unless c >= ' '
-    process_normal_character_vxa(c, pos)
+    process_normal_character_theolized(c, pos)
   end
 end
 # -----------------------------------------------------------------------------
@@ -1338,39 +1341,20 @@ module THEO
     def init_fade_members
       @obj = nil
       @target_opacity = -1
-      @target_contents_opacity = -1
       @fade_speed = 0.0
-      @fade_speed2 = 0.0
+      @pseudo_opacity = 0
     end
     # -------------------------------------------------------------------------
     # *) Set object
     # -------------------------------------------------------------------------
     def setfade_obj(obj)
       @obj = obj
-      @target_opacity = @obj.opacity
-      @target_contents_opacity = @obj.contents_opacity if window?
+      @pseudo_opacity = @obj.opacity
     end
     # -------------------------------------------------------------------------
     # *) Fade function
     # -------------------------------------------------------------------------
     def fade(opacity, duration = DEFAULT_DURATION)
-      @target_opacity = opacity
-      @target_contents_opacity = opacity if @obj.is_a?(Window)
-      make_fade_speed(duration)
-    end
-    # -------------------------------------------------------------------------
-    # *) Only for window. contents fade
-    # -------------------------------------------------------------------------
-    def contents_fade(opacity, duration = DEFAULT_DURATION)
-      return unless window?
-      @target_contents_opacity = opacity
-      make_fade_speed(duration)
-    end
-    # -------------------------------------------------------------------------
-    # *) Only for window. back fade
-    # -------------------------------------------------------------------------
-    def back_fade(opacity, duration = DEFAULT_DURATION)
-      return unless window?
       @target_opacity = opacity
       make_fade_speed(duration)
     end
@@ -1379,14 +1363,7 @@ module THEO
     # -------------------------------------------------------------------------
     def make_fade_speed(duration)
       @fade_speed = (@target_opacity - @obj.opacity)/duration.to_f
-      @fade_speed2 = (@target_contents_opacity - @obj.contents_opacity) / 
-      duration.to_f if window?
-    end
-    # -------------------------------------------------------------------------
-    # *) Is object a window?
-    # -------------------------------------------------------------------------
-    def window?
-      @obj.is_a?(Window)
+      @pseudo_opacity = @obj.opacity.to_f
     end
     # -------------------------------------------------------------------------
     # *) Fadeout function
@@ -1404,46 +1381,22 @@ module THEO
     # *) Update fade
     # -------------------------------------------------------------------------
     def update_fade
-      return unless fade?
-      @obj.opacity += @fade_speed
-      @obj.contents_opacity += @fade_speed2 if window?
-      @target_opacity = -1 unless fade?
+      if fade?
+        @pseudo_opacity += @fade_speed
+        @obj.opacity = @pseudo_opacity
+      else
+        @target_opacity = -1
+      end
     end
     # -------------------------------------------------------------------------
     # *) Is performing fade?
     # -------------------------------------------------------------------------
     def fade?
       return false if @target_opacity == -1
-      if window?
-        (@target_opacity != @obj.opacity) && 
-        (@target_contents_opacity != @obj.contents_opacity)
-      else
-        @target_opacity != @obj.opacity
-      end
+      @target_opacity != @pseudo_opacity.round
     end
     
   end
-end
-# -----------------------------------------------------------------------------
-# Implements to Window
-# -----------------------------------------------------------------------------
-class Window
-  
-  include THEO::FADE
-  
-  alias pre_fade_init initialize
-  def initialize(*args)
-    pre_fade_init(*args)
-    init_fade_members
-    setfade_obj(self)
-  end
-  
-  alias pre_fade_update update
-  def update
-    pre_fade_update
-    update_fade
-  end
-  
 end
 # -----------------------------------------------------------------------------
 # Implements to Sprite
