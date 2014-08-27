@@ -1,8 +1,15 @@
 # =============================================================================
 # Theolized Sideview Battle System (TSBS)
-# Version : 1.3
-# Contact : www.rpgmakerid.com (or) http://theolized.blogspot.com
-# (This script documentation is written in informal indonesian language)
+# Version : 1.3c
+# Language : Indonesian
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Contact :
+#------------------------------------------------------------------------------
+# *> http://www.rpgmakerid.com
+# *> http://www.rpgmakervxace.net
+# *> http://theolized.blogspot.com
+#==============================================================================
+# Last updated : 2014.08.24
 # -----------------------------------------------------------------------------
 # Requires : Theo - Basic Modules v1.5b
 # >> Basic Functions 
@@ -12,22 +19,6 @@
 # >> Clone Image
 # >> Rotate Image
 # >> Smooth Movement
-# =============================================================================
-# Script info :
-# -----------------------------------------------------------------------------
-# Known Compatibility :
-# >> YEA - Core Engine
-# >> YEA - Battle Engine (RECOMMENDED!)
-# >> MOG Battle HUD
-# >> Sabakan - Ao no Kiseki
-# >> Fomar ATB
-# >> EST - Ring System
-# >> AEA - Charge Turn Battle
-# -----------------------------------------------------------------------------
-# Known Incompatibility :
-# >> YEA - Lunatic Object
-# >> Maybe, most of battle related scripts
-# >> MOG Breathing script & HUD
 # =============================================================================
 # Terms of Use :
 # -----------------------------------------------------------------------------
@@ -146,6 +137,12 @@
   Animasi yang akan diplay kepada korban serangan magic saat korban melakukan
   magic reflection
   
+  --------------------------------------------------------------------------
+  NOTETAG UNTUK NO SHADOW
+  <no shadow>
+  
+  Gunakan tag ini jika kamu mau actor ngga menampilkan shadow
+  
   ==========================================================================
   * ) ENEMY NOTETAGS :
   --------------------------------------------------------------------------
@@ -195,6 +192,21 @@
   Untuk beberapa enemy yang gambar aslinya menghadap kiri contohnya adalah
   untuk sprite kaduki, dan kamu ingin ngebuatnya hadap kanan, gunakan tag 
   <flip>
+  
+  --------------------------------------------------------------------------
+  NOTETAG UNTUK NO SHADOW
+  <no shadow>
+  
+  Gunakan tag ini jika kamu mau enemy ngga menampilkan shadow
+  
+  --------------------------------------------------------------------------
+  NOTETAG UNTUK COLLAPSE SOUND
+  <collapsound: nama, vol, pitch>
+  
+  Gunakan tag ini jika kamu ingin spesifikasi collapse sound pada musuh
+  tertentu. Ganti 'nama' dengan nama file SE, 'volume' dan 'pitch' dengan angka.
+  Default untuk collapse sound sama dengan enemy collapse sound pada database
+  system
   
   ==========================================================================
   * ) WEAPON AND CLASS NOTETAGS :
@@ -286,6 +298,15 @@
   seperti ini
   <random reflect>
   
+  --------------------------------------------------------------------------
+  ONE ANIMATION DISPLAY :
+  
+  Secara default saat battler melakukan skill area animasi akan diplay di setiap
+  target. Tag ini ngebuat agar itu ngga terjadi. Dengan ganti, animasi akan
+  ditampikan satu di tengah target-target tersebut. Gunakan tag ini pada skill
+  atau item.
+  <one animation>
+  
   ----------------------------------------------------------------------------
   Dan beberapa notetag spesial untuk skill :
   <always hit>    || Untuk skill yang selalu kena
@@ -362,11 +383,18 @@
   -----------------------------------------------------------------------------
   State Animation :
   -------------------------
-  Jika battler terkena state tertentu dan kamu ingin play animas secara looping
+  Jika battler terkena state tertentu dan kamu ingin play animasi secara looping
   pada battler tersebut, kamu bisa menuliskan tag
   <animation: id>
   
   id adalah id animasi yang ada di database > animation
+  
+  -----------------------------------------------------------------------------
+  State Animation Behind :
+  -------------------------
+  Untuk men-support fungsi state animation. Kamu juga bisa membuat play animasi
+  state ada di belakang battler dengan menggunakan tag
+  <anim behind>
   
   -----------------------------------------------------------------------------
   State Transformation :
