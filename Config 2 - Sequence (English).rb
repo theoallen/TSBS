@@ -1,8 +1,16 @@
 # =============================================================================
 # Theolized Sideview Battle System (TSBS)
-# Version : 1.3
-# Contact : www.rpgmakerid.com (or) http://theolized.blogspot.com
+# Version : 1.3c
+# Language : English
 # Some translation by : CielScarlet
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Contact :
+#------------------------------------------------------------------------------
+# *> http://www.rpgmakerid.com
+# *> http://www.rpgmakervxace.net
+# *> http://theolized.blogspot.com
+#==============================================================================
+# Last updated : 2014.08.24
 # -----------------------------------------------------------------------------
 # Requires : Theo - Basic Modules v1.5b
 # >> Basic Functions 
@@ -12,22 +20,6 @@
 # >> Clone Image
 # >> Rotate Image
 # >> Smooth Movement
-# =============================================================================
-# Script info :
-# -----------------------------------------------------------------------------
-# Known Compatibility :
-# >> YEA - Core Engine
-# >> YEA - Battle Engine (RECOMMENDED!)
-# >> MOG Battle HUD
-# >> Sabakan - Ao no Kiseki
-# >> Fomar ATB
-# >> EST - Ring System
-# >> AEA - Charge Turn Battle
-# -----------------------------------------------------------------------------
-# Known Incompatibility :
-# >> YEA - Lunatic Object
-# >> Maybe, most of battle related scripts (ATB, or such...)
-# >> MOG Breathing script
 # =============================================================================
 # Terms of Use :
 # -----------------------------------------------------------------------------
@@ -209,6 +201,20 @@ module TSBS  # <-- don't touch
   59) :instant_reset    >> Instantly reset battler position
   60) :anim_follow      >> Make animation follow battler
   61) :change_skill     >> Change carried skill for easier use
+  
+  Update v1.3b
+  62) :check_collapse   >> To perform collapse effect to target if dead
+  63) :reset_counter    >> To reset damage counter
+  64) :force_hit        >> To make next damage will be always hit
+  65) :slow_motion      >> To make slow motion effect
+  66) :timestop         >> To freeze the screen for certain frames
+
+  Update v1.3c
+  67) :one_anim         >> One animation display for area attack
+  68) :proj_scale       >> Scale the damage for projectile
+  69) :com_event        >> Call common event during action sequence
+  70) :scr_freeze       >> Freeze screen from update
+  71) :scr_trans        >> Perform screen transition
   
   ===========================================================================
   *) create an action sequence
@@ -1421,7 +1427,6 @@ module TSBS  # <-- don't touch
   Like [:anim_top]. But it will make the next animation to follow the battler
   where it goes. Call right before [:cast] or [:show_anim]
   
-  
   Example :
   [:anim_follow],
   [:cast, 69],
@@ -1452,6 +1457,184 @@ module TSBS  # <-- don't touch
   
   Damage output rescale from different skill id couldn't be done by regular 
   [:target_damage]. By calling this skill, now you could
+  
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                              UPDATE VERSION 1.3b
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  
+  ===========================================================================  
+  62) :check_collapse | To perform collapse effect to target if dead
+  ---------------------------------------------------------------------------
+  Format --> [:check_collapse]
+  
+  Note :
+  Used to perform collapse to target if target is dead. In other words,
+  collapse sequence will be played during action sequence. Collapse effect won't
+  be played if target still alive
+  
+  Example :
+  [:target_damage],
+  [:check_collapse],
+  
+  ===========================================================================  
+  63) :reset_counter | To reset damage counter
+  ---------------------------------------------------------------------------
+  Format --> [:reset_counter]
+  
+  Note :
+  Used to reset damage counter. If the damage counter display the total hit as
+  5, by calling this command, then the damage counter will be resetted back
+  to 1
+  
+  Example :
+  [:reset_counter],
+  
+  ===========================================================================  
+  64) :force_hit | To make next damage will be always hit
+  ---------------------------------------------------------------------------
+  Format --> [:force_hit]
+  
+  Note :
+  Used to make attack by the next [:target_damage] will be always hit. Call
+  before the [:target_damage] is executed
+  
+  Example :
+  [:force_hit],
+  [:show_anim],
+  [:target_damage],
+  
+  Important note :
+  I might change usage of this command in later version. It might be completely
+  different. Make sure keep eye on this command in later version if you want to
+  use.
+  
+  ===========================================================================
+  65) :slow_motion | To make slow motion effect
+  ---------------------------------------------------------------------------
+  Format --> [:slow_motion, frame, rate]
+  
+  Note :
+  This command used to make slow motion effect.
+  
+  Parameters :
+  Frame >> How long (in frame) slow motion will take effect?
+  Rate  >> Slowdown rate. The default FPS is 60. If you put the value as 2,
+           then the FPS would be dropped to 30. If you put higher value, the
+           FPS would be dropped to 20, 15, 10 ...
+  
+  Example : 
+  [:slow_motion, 30, 2],
+  
+  ===========================================================================
+  66) :timestop | To freeze the screen for certain frames
+  ---------------------------------------------------------------------------
+  Format --> [:timestop, frame]
+  
+  Note :
+  This command is used to stop the screen for a brief time (in frames)
+  
+  Example :
+  [:timestop, 60],
+  
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                              UPDATE VERSION 1.3c
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  ===========================================================================  
+  67) :one_anim | One animation display for area attack
+  ---------------------------------------------------------------------------
+  Format --> [:one_anim],
+  
+  Note :
+  It's animation flag. The next animation will be played only one if the
+  current target is area target. The animation will be played in the middle
+  of all targets. Put this command on before [:show_anim]. Can be used to
+  projectile as well
+  
+  Example :
+  [:one_anim],
+  [:show_anim],
+  
+  ===========================================================================  
+  68) :proj_scale | Scale the damage for projectile
+  ---------------------------------------------------------------------------
+  Format --> [:proj_scale, (scale / formula)],
+  
+  Note :
+  This command is to rescale damage from projectile attack. Unlike other flag 
+  which only take effect only once. This command it will take effect until you 
+  explicitly remove it.
+  
+  You could fill it by scale like [proj_scale, 1.0], or damage formula like
+  [proj_scale, "a.atk * 4 - b.def * 2"],
+  
+  Example :
+  [:projectile, ...], # <-- this won't take the effect
+  [:proj_scale, 0.5], # <-- scale damage to 50%
+  [:projectile, ...], # <-- this will take the effect
+  [:projectile, ...], # <-- this will take the effect
+  [:proj_scale, 1.0], # <-- scale damage back to 100%
+  
+  ===========================================================================    
+  69) :com_event | Call common event during action sequence
+  ---------------------------------------------------------------------------
+  Format --> [:com_event, id],
+  
+  Note :
+  This command is to call common event during action sequence. Common event
+  will running while action sequence is being performed.
+  
+  Example :
+  [:com_event, 1], # <-- this will run common event number 1
+  
+  ~~~~~~~~~~~~~~~~~~~
+  To prevent action sequence is being continued, you could use [:while] command
+  and "event_running?" as the script call check.
+  
+  Example :
+  [:com_event, 1],
+  [:while, "event_running?", "K-Idle"],
+  
+  While common event is running, then the sprite will perform "K-Idle" in 
+  looping until the common event end.
+  
+  ===========================================================================  
+  70) :scr_freeze | Freeze screen from update
+  ---------------------------------------------------------------------------
+  Format --> [:scr_freeze],
+  
+  Note :
+  To freeze screen from update. Unlike [:freeze], this one is completely freeze
+  the game screen. It must be called before you call the screen transition
+  
+  Example :
+  [:scr_freeze], # <-- remember. It doesn't have any parameter like true/false
+  
+  ===========================================================================  
+  71) :scr_trans | Perform screen transition
+  ---------------------------------------------------------------------------
+  Format --> [:scr_trans, "file", dur, (vague)],
+  
+  Note :
+  Used to make screen transition after screen is frozen. [:scr_freeze] need to
+  be called before use this command.
+  
+  Parameters :
+  "file" >> Filename of transition picture located in Graphics/pictures
+  dur    >> Transition duration in frame (60 frame = 1 second)
+  vague  >> Ambiguity value. Greater value greater ambiguity. Can be omitted.
+            The default value is 40
+  
+  Example :
+  [:scr_freeze],
+  [:plane_add, "magic_square01", 0, 0, false, 1],
+  [:focus, 1, Color.new(0,0,0,0)],
+  [:scr_trans, "Circle", 60],
+  
+  [:scr_freeze],
+  [:plane_add, "magic_square01", 0, 0, false, 1],
+  [:focus, 1, Color.new(0,0,0,0)],
+  [:scr_trans, "Circle", 60, 120],
 
 =end
 # =============================================================================
@@ -1459,6 +1642,14 @@ module TSBS  # <-- don't touch
 # -----------------------------------------------------------------------------
 # Define you own custom sequences here.
 # -----------------------------------------------------------------------------
+  "K-idle" => [
+  [true, false, false],
+  [:pose, 1, 0, 10],
+  [:pose, 1, 1, 10],
+  [:pose, 1, 2, 10],
+  [:pose, 1, 1, 10],
+  ],
+
   "IDLE" => [
   #[Loop, afterimage, flip]
   [true, false, false],
