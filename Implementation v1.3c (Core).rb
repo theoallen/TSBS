@@ -1,8 +1,15 @@
 # =============================================================================
 # Theolized Sideview Battle System (TSBS)
-# Version : 1.3
-# Contact : www.rpgmakerid.com (or) http://theolized.blogspot.com
-# (English Language)
+# Version : 1.3c
+# Language : English
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Contact :
+#------------------------------------------------------------------------------
+# *> http://www.rpgmakerid.com
+# *> http://www.rpgmakervxace.net
+# *> http://theolized.blogspot.com
+# =============================================================================
+# Last updated : 2014.08.27
 # -----------------------------------------------------------------------------
 # Requires : Theo - Basic Modules v1.5b
 # >> Basic Functions 
@@ -12,47 +19,34 @@
 # >> Clone Image
 # >> Rotate Image
 # >> Smooth Movement
-# =============================================================================
-# Script info :
-# -----------------------------------------------------------------------------
-# Known Compatibility :
-# >> YEA - Core Engine
-# >> YEA - Battle Engine (RECOMMENDED!)
-# >> MOG Battle HUD
-# >> Sabakan - Ao no Kiseki
-# >> Fomar ATB
-# >> EST - Ring System
-# >> AEA - Charge Turn Battle
-# -----------------------------------------------------------------------------
-# Known Incompatibility :
-# >> YEA - Lunatic Object
-# >> Maybe, most of battle related scripts
-# >> MOG Breathing script
 # -----------------------------------------------------------------------------
 # This section is mainly aimed for scripters. There's nothing to do unless
 # you know what you're doing. I told ya. It's for your own good 
+# =============================================================================
+($imported ||= {})[:TSBS] = true  # <-- don't edit this line ~
 # =============================================================================
 module TSBS
   # --------------------------------------------------------------------------
   # Constantas
   # --------------------------------------------------------------------------
   
-  BusyPhases = [:intro, :skill, :prepare, :collapse, :forced]
-  # Phase that considered as busy and wait for finish
+  BusyPhases = [:intro, :skill, :prepare, :collapse, :forced, :return]
+  # Phase that considered as busy and wait for finish. Do not change!
   
-  Temporary_Phase = [:hurt, :evade, :return, :intro, 
-    :counter, :collapse,]
-  # Phase that will be replaced by :idle when finished
+  Temporary_Phase = [:hurt, :evade, :return, :intro, :counter, :collapse]
+  # Phase that will be replaced by :idle when finished. Do not change!
   
   EmptyTone = Tone.new(0,0,0,0)
   # Tone that replace the battler tone if battler has no state tone
+  # Do not change!
   
   EmptyColor = Color.new(0,0,0,0)
   # Color that replace the battler color blend if battler has no state color
+  # Do not change!
 
-  # -------------------------------------------------------------------------
-  # Sequence Constants. Want to simplify the mode symbols? edit this section
-  # -------------------------------------------------------------------------
+  # ---------------------------------------------------------------------------
+  # Sequence Constants. Want to simplify the command symbols? edit this section
+  # ---------------------------------------------------------------------------
   
   # Initial Release v1.0
   SEQUENCE_POSE             = :pose           # set pose
@@ -120,11 +114,23 @@ module TSBS
   SEQUENCE_WHILE            = :while        # While loop
   SEQUENCE_COLLAPSE         = :collapse     # Perform collapse effect  
   SEQUENCE_FORCED           = :forced       # Force change action key to target
-  SEQUENCE_ANIMBOTTOM       = :anim_bottom  # Play anim behind battler
-  SEQUENCE_CASE             = :case         # Case switch
+  SEQUENCE_ANIMBOTTOM       = :anim_bottom    # Play anim behind battler
+  SEQUENCE_CASE             = :case           # Case switch
   SEQUENCE_INSTANT_RESET    = :instant_reset  # Instant reset
-  SEQUENCE_ANIMFOLLOW       = :anim_follow  # Animation follow the battler
-  SEQUENCE_CHANGE_SKILL     = :change_skill # Change carried skill
+  SEQUENCE_ANIMFOLLOW       = :anim_follow    # Animation follow the battler
+  SEQUENCE_CHANGE_SKILL     = :change_skill   # Change carried skill
+  # v1.3b
+  SEQUENCE_CHECKCOLLAPSE    = :check_collapse # Check collapse for target
+  SEQUENCE_RESETCOUNTER     = :reset_counter  # Reset damage counter
+  SEQUENCE_FORCEHIT         = :force_hit      # Toggle force to always hit
+  SEQUENCE_SLOWMOTION       = :slow_motion    # Slow Motion effect
+  SEQUENCE_TIMESTOP         = :timestop       # Timestop effect
+  # v1.3c
+  SEQUENCE_ONEANIM          = :one_anim       # One Anim Flag
+  SEQUENCE_PROJ_SCALE       = :proj_scale     # Scale damage for projectile
+  SEQUENCE_COMMON_EVENT     = :com_event      # Call common event
+  SEQUENCE_GRAPHICS_FREEZE  = :scr_freeze     # Freeze the graphic
+  SEQUENCE_GRAPHICS_TRANS   = :scr_trans      # Transition
   
   # Screen sub-modes
   Screen_Tone       = :tone       # Set screen tone
@@ -178,6 +184,9 @@ module TSBS
   NoReturnTAG = /<no[\s_]+return>/i
   # Tag for no return sequence for skill
   
+  NoShadowTAG = /<no[\s_]+shadow>/i
+  # Tag for no shadow for actor/enemy
+  
   AbsoluteTarget = /<abs[-_\s]+target>/i
   # Tag for absolute targeting
   
@@ -208,6 +217,15 @@ module TSBS
   DefaultATK = /<attack[\s_]*:\s*(\d+)>/i
   DefaultDEF = /<guard[\s_]*:\s*(\d+)>/i
   # Default basic actions
+  
+  AnimBehind = /<anim[\s_]+behind>/i
+  # State Animation behind flag
+  
+  CollapSound = /<collapsound\s*:\s*(.+)\s*,\s*(\d+)\s*,\s*(\d+)\s*>/i
+  # Collapse sound effect 
+  
+  OneAnimation = /<one animation>/i
+  # One Animation tag
   
   ToneREGX = 
   /<tone:\s*(-|\+*)(\d+),\s*(-|\+*)(\d+),\s*(-|\+*)(\d+),\s*(-|\+*)(\d+)>/i
@@ -246,10 +264,63 @@ module TSBS
     ErrorSound.play
     text = "Sequence : #{seq}\n" +
     "#{symbol} mode needs at least #{params} parameters"
-    raise text
+    msgbox text
     exit
   end
   
+end
+#===============================================================================
+# * Rewrite module for how animation is handled in TSBS
+#-------------------------------------------------------------------------------
+# Put it inside any subclass of Sprite_Base. Don't forget to add @anim_top
+# inside its start_animation as well
+#-------------------------------------------------------------------------------
+module TSBS_AnimRewrite
+  # --------------------------------------------------------------------------
+  # Overwrite method : animation set sprites
+  # --------------------------------------------------------------------------
+  def animation_set_sprites(frame)
+    cell_data = frame.cell_data
+    @ani_sprites.each_with_index do |sprite, i|
+      next unless sprite
+      pattern = cell_data[i, 0]
+      if !pattern || pattern < 0
+        sprite.visible = false
+        next
+      end
+      sprite.bitmap = pattern < 100 ? @ani_bitmap1 : @ani_bitmap2
+      sprite.visible = true
+      sprite.src_rect.set(pattern % 5 * 192,
+        pattern % 100 / 5 * 192, 192, 192)
+      if @ani_mirror
+        sprite.x = @ani_ox - cell_data[i, 1]
+        sprite.y = @ani_oy + cell_data[i, 2]
+        sprite.angle = (360 - cell_data[i, 4])
+        sprite.mirror = (cell_data[i, 5] == 0)
+      else
+        sprite.x = @ani_ox + cell_data[i, 1]
+        sprite.y = @ani_oy + cell_data[i, 2]
+        sprite.angle = cell_data[i, 4]
+        sprite.mirror = (cell_data[i, 5] == 1)
+      end
+      # ---------------------------------------------
+      # If animation position is to screen || on top?
+      # ---------------------------------------------
+      if (@animation.position == 3 && !@anim_top == -1) || @anim_top == 1
+        sprite.z = self.z + 400 + i  # Always display in top
+      elsif @anim_top == -1
+        sprite.z = 3 + i
+      else
+        sprite.z = self.z + 2 + i
+      end
+      sprite.ox = 96
+      sprite.oy = 96
+      sprite.zoom_x = cell_data[i, 3] / 100.0
+      sprite.zoom_y = cell_data[i, 3] / 100.0
+      sprite.opacity = cell_data[i, 6] * self.opacity / 255.0
+      sprite.blend_type = cell_data[i, 7]
+    end
+  end
 end
 # ----------------------------------------------------------------------------
 # Kernel method to get scene spriteset
@@ -293,9 +364,14 @@ end
 
 class << Sound
   
-  # Delete play evasion ~
+  # Delete play evasion. Because I don't want to overwrite Window_BattleLog
   alias tsbs_play_eva play_evasion
   def play_evasion
+  end
+  
+  # Delete play evasion. Because I don't want to overwrite perform collapse
+  alias tsbs_play_enemycollapse play_enemy_collapse
+  def play_enemy_collapse
   end
   
 end
@@ -358,7 +434,7 @@ class << BattleManager
   alias tsbs_process_victory process_victory
   def process_victory
     $game_party.alive_members.each do |member|
-      member.battle_phase = :victory
+      member.battle_phase = :victory unless member.victory.empty?
     end
     tsbs_process_victory
   end
@@ -515,6 +591,12 @@ class RPG::State < RPG::BaseItem
       end
     end
   end
+  # --------------------------------------------------------------------------
+  # New method : Anim Behind?
+  # --------------------------------------------------------------------------
+  def anim_behind?
+    !note[TSBS::AnimBehind].nil?
+  end
   
 end
 
@@ -621,6 +703,14 @@ class RPG::UsableItem < RPG::BaseItem
   def random_reflect?
     !note[TSBS::RandomReflect].nil?
   end
+  # --------------------------------------------------------------------------
+  # New method : Determine if skill has one animation flag
+  # --------------------------------------------------------------------------
+  unless $imported["YEA-BattleEngine"]
+  def one_animation
+    !note[TSBS::OneAnimation].nil?
+  end
+  end
 end
 
 #==============================================================================
@@ -650,6 +740,7 @@ class RPG::Actor < RPG::BaseItem
   attr_accessor :reflect_anim   # Reflect animation
   attr_accessor :attack_id      # Attack skill ID
   attr_accessor :guard_id       # Guard skill ID
+  attr_accessor :no_shadow      # No shadow flag
   # --------------------------------------------------------------------------
   # New method : load TSBS notetags
   # --------------------------------------------------------------------------
@@ -671,6 +762,7 @@ class RPG::Actor < RPG::BaseItem
     @use_sprite = true
     @attack_id = 0
     @guard_id = 0
+    @no_shadow = false
     load_sbs = false
     note.split(/[\r\n]+/).each do |line|
       # -- Non TSBS sideview tag ---
@@ -683,6 +775,8 @@ class RPG::Actor < RPG::BaseItem
         @reflect_anim = $1.to_i
       when TSBS::CounterSkillID
         @counter_skill = $1.to_i
+      when TSBS::NoShadowTAG
+        @no_shadow = true 
       end
       # -- TSBS sideview tag ---
       if line =~ TSBS::SBS_Start
@@ -746,6 +840,8 @@ class RPG::Enemy < RPG::BaseItem
   attr_accessor :sprite_name    # Sprite name
   attr_accessor :counter_skill  # Counter skill ID
   attr_accessor :reflect_anim   # Reflect animation
+  attr_accessor :no_shadow      # No shadow flag
+  attr_accessor :collapsound    # Collapse sound effect
   # --------------------------------------------------------------------------
   # New method : load TSBS notetags
   # --------------------------------------------------------------------------
@@ -763,21 +859,27 @@ class RPG::Enemy < RPG::BaseItem
     @sprite_name = ""
     @counter_skill = 1
     @use_sprite = false
+    @no_shadow = false
+    @collapsound = $data_system.sounds[11]
     load_sbs = false
     note.split(/[\r\n]+/).each do |line|
-      if line =~ TSBS::SBS_Start_S
+      case line
+      when TSBS::NoShadowTAG
+        @no_shadow = true 
+      when TSBS::SBS_Start_S
         load_sbs = true
         @use_sprite = true
         @sprite_name = $1.to_s
-      elsif line =~ TSBS::SBS_Start
+      when TSBS::SBS_Start
         load_sbs = true
-      elsif line =~ TSBS::SBS_End
+      when TSBS::SBS_End
         load_sbs = false
-      end
-      if line =~ TSBS::ReflectAnim
+      when TSBS::ReflectAnim
         @reflect_anim = $1.to_i
-      elsif line =~ TSBS::CounterSkillID
+      when TSBS::CounterSkillID
         @counter_skill = $1.to_i
+      when TSBS::CollapSound
+        @collapsound = RPG::SE.new($1.to_s,$2.to_i,$3.to_i)
       end
       next unless load_sbs
       case line
@@ -816,12 +918,18 @@ class Game_Temp
   # --------------------------------------------------------------------------
   # New public accessors
   # --------------------------------------------------------------------------
-  attr_accessor :actors_fiber     # Store actor Fibers thread
-  attr_accessor :enemies_fiber    # Store enemy Fibers thread
-  attr_accessor :battler_targets  # Store current targets
-  attr_accessor :anim_top         # Store anim top flag
-  attr_accessor :global_freeze    # Global freeze flag
-  attr_accessor :anim_follow      # Store anim follow flag
+  attr_accessor :actors_fiber       # Store actor Fibers thread
+  attr_accessor :enemies_fiber      # Store enemy Fibers thread
+  attr_accessor :battler_targets    # Store current targets
+  attr_accessor :anim_top           # Store anim top flag
+  attr_accessor :global_freeze      # Global freeze flag (not tested)
+  attr_accessor :anim_follow        # Store anim follow flag
+  attr_accessor :slowmotion_frame   # Total frame for slowmotion
+  attr_accessor :slowmotion_rate    # Framerate for slowmotion
+  attr_accessor :one_animation_id   # One Animation ID Display
+  attr_accessor :one_animation_flip # One Animation flip flag
+  attr_accessor :one_animation_flag # One Animation assign flag
+  attr_accessor :tsbs_event         # TSBS common event play
   # --------------------------------------------------------------------------
   # Alias method : Initialize
   # --------------------------------------------------------------------------
@@ -840,6 +948,12 @@ class Game_Temp
     @anim_top = 0
     @global_freeze = false
     @anim_follow = false
+    @slowmotion_frame = 0
+    @slowmotion_rate = 2
+    @one_animation_id = 0
+    @one_animation_flip = false
+    @one_animation_flag = false
+    @tsbs_event = 0
   end
   
 end
@@ -876,7 +990,7 @@ end
 #==============================================================================
 
 class Game_ActionResult
-  attr_accessor :reflected  # Reflected flag. Purposely used for :if mode
+  attr_accessor :reflected  # Reflected flag. Purposely used for :if command
   # --------------------------------------------------------------------------
   # Alias method : Clear
   # --------------------------------------------------------------------------
@@ -942,9 +1056,10 @@ class Game_Battler < Game_BattlerBase
   attr_accessor :balloon_id         # Balloon ID for battler
   attr_accessor :anim_guard         # Anim Guard ID
   attr_accessor :anim_guard_mirror  # Mirror Flag
-  attr_accessor :afopac             # Afterimage ppacity fade speed
+  attr_accessor :afopac             # Afterimage opacity fade speed
   attr_accessor :afrate             # Afterimage show rate
   attr_accessor :forced_act         # Force action
+  attr_accessor :force_hit          # Force always hit flag
   # --------------------------------------------------------------------------
   # New public attributes (access only)
   # --------------------------------------------------------------------------
@@ -953,6 +1068,7 @@ class Game_Battler < Game_BattlerBase
   attr_reader :battle_phase   # Battle Phase
   attr_reader :finish         # Sequence finish flag
   attr_reader :blend          # Blend
+  attr_reader :acts           # Used action
   # --------------------------------------------------------------------------
   # Alias method : initialize
   # --------------------------------------------------------------------------
@@ -999,10 +1115,10 @@ class Game_Battler < Game_BattlerBase
     @battler_index = 1
     @battle_phase = nil
     @target = nil
-    @ori_target = nil
+    @ori_target = nil # Store original target. Do not change!
     @target_array = []
-    @ori_targets = []
-    @item_in_use = nil
+    @ori_targets = [] # Store original target array. Do not change!
+    @item_in_use = nil  
     @visible = true
     @flip = default_flip
     @area_flag = false
@@ -1018,14 +1134,16 @@ class Game_Battler < Game_BattlerBase
     @timed_hit_count = 0
     @acts = []
     @blend = 0
-    @used_sequence = ""
-    @sequence_stack = []
+    @used_sequence = "" # Record the used sequence for error handling
+    @sequence_stack = []  # Used sequence stack trace for error handling
     @boomerang = false
     @proj_afimg = false
     @balloon_id = 0
     @anim_guard = 0
     @anim_guard_mirror =  false
     @forced_act = ""
+    @force_hit = false
+    @proj_scale = 1.0
     reset_aftinfo
   end
   # --------------------------------------------------------------------------
@@ -1089,7 +1207,7 @@ class Game_Battler < Game_BattlerBase
   # --------------------------------------------------------------------------
   def insert_fiber(fiber)
     if actor?
-      $game_temp.actors_fiber[index] = fiber
+      $game_temp.actors_fiber[id] = fiber
     else
       $game_temp.enemies_fiber[index] = fiber
     end
@@ -1129,7 +1247,7 @@ class Game_Battler < Game_BattlerBase
   # --------------------------------------------------------------------------
   # New method : Idle sequence key
   # --------------------------------------------------------------------------
-  # Idle key sequence contains several sequence key. Include dead sequence,
+  # Idle key sequence contains several sequence keys. Include dead sequence,
   # state sequence, critical sequence,and normal sequence. Dead key sequence
   # has the top priority over others. Just look at the below
   # --------------------------------------------------------------------------
@@ -1217,6 +1335,13 @@ class Game_Battler < Game_BattlerBase
     
     # ----- Start ------ #
     @finish = false
+    @proj_scale = 1.0
+    unless @animation_array[0].all?{|init| [nil,false,true,:ori].include?(init)}
+      ErrorSound.play
+      text = "Sequence : #{@used_sequence}\nYou miss the initial setup"
+      msgbox text
+      exit
+    end
     flip_val = @animation_array[0][2] # Flip Value
     @flip = flip_val if !flip_val.nil?
     @flip = default_flip if flip_val == :ori || (flip_val.nil? && 
@@ -1306,7 +1431,7 @@ class Game_Battler < Game_BattlerBase
     when SEQUENCE_SMSLIDE;            setup_smooth_slide
     when SEQUENCE_SMTARGET;           setup_smooth_move_target
     when SEQUENCE_SMRETURN;           setup_smooth_return
-      # New update list v1.3
+      # New update list v1.3 + v1.3b + v1.3c
     when SEQUENCE_LOOP;               setup_loop
     when SEQUENCE_WHILE;              setup_while
     when SEQUENCE_COLLAPSE;           tsbs_perform_collapse_effect
@@ -1316,6 +1441,16 @@ class Game_Battler < Game_BattlerBase
     when SEQUENCE_INSTANT_RESET;      setup_instant_reset
     when SEQUENCE_ANIMFOLLOW;         $game_temp.anim_follow = true
     when SEQUENCE_CHANGE_SKILL;       setup_change_skill
+    when SEQUENCE_CHECKCOLLAPSE;      setup_check_collapse
+    when SEQUENCE_RESETCOUNTER;       SceneManager.scene.damage.reset_value
+    when SEQUENCE_FORCEHIT;           @force_hit = true
+    when SEQUENCE_SLOWMOTION;         setup_slow_motion
+    when SEQUENCE_TIMESTOP;           setup_timestop
+    when SEQUENCE_ONEANIM;            $game_temp.one_animation_flag = true
+    when SEQUENCE_PROJ_SCALE;         setup_proj_scale
+    when SEQUENCE_COMMON_EVENT;       setup_tsbs_common_event
+    when SEQUENCE_GRAPHICS_FREEZE;    Graphics.freeze
+    when SEQUENCE_GRAPHICS_TRANS;     setup_transition
       # Interesting on addons?
     else;                             custom_sequence_handler
     end
@@ -1380,13 +1515,14 @@ class Game_Battler < Game_BattlerBase
       size = target_array.size
       xpos = target_array.inject(0) {|r,battler| r + battler.x}/size
       ypos = target_array.inject(0) {|r,battler| r + battler.y}/size
+      xpos += @acts[1]
       xpos *= -1 if flip
       # Get the center coordinate of enemies
-      goto(xpos, ypos, @acts[3], @acts[4])
+      goto(xpos, ypos + @acts[2], @acts[3], @acts[4])
       return
     end
     xpos = target.x + (flip ? -@acts[1] : @acts[1])
-    ypos = target.y
+    ypos = target.y + @acts[2]
     goto(xpos, ypos, @acts[3], @acts[4])
   end
   # --------------------------------------------------------------------------
@@ -1404,7 +1540,7 @@ class Game_Battler < Game_BattlerBase
     "#{err.to_s}\n\n" +
     "Check your script call. If you still have no idea, ask for support " +
     "in RPG Maker forums"
-    raise result
+    msgbox result
     exit
   end
   # --------------------------------------------------------------------------
@@ -1437,7 +1573,7 @@ class Game_Battler < Game_BattlerBase
     if area_flag && target_array
       # Damage to all targets ~
       target_array.uniq.each do |target|
-        SceneManager.scene.tsbs_invoke_item(target, item)
+        SceneManager.scene.tsbs_invoke_item(target, item, self)
         # Check animation guard
         if !item.ignore_anim_guard? && item.parallel_anim?
           target.anim_guard = target.anim_guard_id
@@ -1446,13 +1582,14 @@ class Game_Battler < Game_BattlerBase
       end
     elsif target
       # Damage to single target
-      SceneManager.scene.tsbs_invoke_item(target, item)
+      SceneManager.scene.tsbs_invoke_item(target, item, self)
       # Check animation guard
       if !item.ignore_anim_guard? && item.parallel_anim?
         target.anim_guard = target.anim_guard_id
         target.anim_guard_mirror = target.flip
       end
     end
+    @force_hit = false # Reset force hit
   end
   # --------------------------------------------------------------------------
   # New method : Setup cast [:cast,]
@@ -1465,7 +1602,23 @@ class Game_Battler < Game_BattlerBase
   # New method : Setup animation [:show_anim,]
   # --------------------------------------------------------------------------
   def setup_anim
-    if area_flag
+    if $game_temp.one_animation_flag || (@acts[1].nil? && 
+        item_in_use.one_animation)
+      handler = get_spriteset.one_anim
+      size = target_array.size
+      xpos = target_array.inject(0) {|r,battler| r + battler.screen_x}/size
+      ypos = target_array.inject(0) {|r,battler| r + battler.screen_y}/size
+      zpos = target_array.inject(0) {|r,battler| r + battler.screen_z}/size
+      handler.set_position(xpos, ypos, zpos)
+      sprites = target_array.collect {|t| get_spriteset.get_sprite(t)}
+      handler.target_sprites = sprites
+      anim_id = (@acts[1].nil? ? item_in_use.animation_id : @acts[1])
+      anim_id = atk_animation_id1 if anim_id == -1 && actor?
+      mirror = flip || @acts[2]
+      $game_temp.one_animation_id = anim_id
+      $game_temp.one_animation_flip = mirror
+      $game_temp.one_animation_flag = false
+    elsif area_flag
       target_array.uniq.each do |target|
         setup_target_anim(target, @acts)
       end
@@ -1556,7 +1709,10 @@ class Game_Battler < Game_BattlerBase
   # --------------------------------------------------------------------------
   def show_projectile
     return TSBS.error(@acts[0], 3, @used_sequence) if @acts.size < 4
-    if area_flag
+    if $game_temp.one_animation_flag || item_in_use.one_animation
+      get_spriteset.add_projectile(make_projectile(target_array))
+      $game_temp.one_animation_flag = false
+    elsif area_flag
       target_array.uniq.each do |target|
         get_spriteset.add_projectile(make_projectile(target))
       end
@@ -1573,6 +1729,8 @@ class Game_Battler < Game_BattlerBase
   def make_projectile(target)
     spr_self = get_spriteset.get_sprite(self)
     proj = Sprite_Projectile.new
+    
+    # Initialize the projectile position
     proj.x = self.screen_x
     case @proj_start
     when :feet
@@ -1582,9 +1740,21 @@ class Game_Battler < Game_BattlerBase
     when :head
       proj.y = self.screen_y - spr_self.height
     end
+    
+    # Assign the basic carried information for projectile
     proj.subject = self
     proj.target = target
-    proj.item = item_in_use
+    proj_item = copy(item_in_use)
+    
+    # Modify carried item
+    if @proj_scale.is_a?(String)
+      proj_item.damage.formula = @proj_scale
+    elsif @proj_scale.is_a?(Numeric)
+      proj_item.damage.formula = "(#{proj_item.damage.formula})*#{@proj_scale}"
+    end
+    proj.item = proj_item
+    
+    # Check icon use
     ico = @acts[4]
     icon_index = 0
     begin
@@ -1593,7 +1763,8 @@ class Game_Battler < Game_BattlerBase
       display_error("[#{SEQUENCE_PROJECTILE},]",err)
     end
     proj.icon = icon_index
-    tx = target.x
+    
+    # Add extra information before return
     anim = $data_animations[@acts[1]]
     dur = @acts[2]
     jump = @acts[3]
@@ -1603,6 +1774,8 @@ class Game_Battler < Game_BattlerBase
     proj.target_aim = @proj_end
     proj.make_aim(dur, jump)
     proj.start_animation(anim)
+    
+    # Returning the projectile sprite
     return proj
   end
   # --------------------------------------------------------------------------
@@ -1619,7 +1792,7 @@ class Game_Battler < Game_BattlerBase
     elsif @acts[1].is_a?(Float)
       item.damage.formula = "(#{item.damage.formula}) * #{@acts[1]}"
     end
-    SceneManager.scene.tsbs_invoke_item(self, item)
+    SceneManager.scene.tsbs_invoke_item(self, item, self)
   end
   # --------------------------------------------------------------------------
   # New method : Setup weapon icon [:icon,]
@@ -1718,7 +1891,7 @@ class Game_Battler < Game_BattlerBase
     c = c/100.0 if c.integer?
     if area_flag
       target_array.each do |t|
-        cx = c
+        cx = c # Chance extra
         if !@acts[3]
           cx *= target.state_rate(@acts[1]) if opposite?(self)
           cx *= target.luk_effect_rate(self) if opposite?(self)
@@ -1914,9 +2087,10 @@ class Game_Battler < Game_BattlerBase
     return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
     sprset = get_spriteset
     sprset.focus_bg.fadeout(@acts[1])
-    sprset.battler_sprites.select do |spr|
-      !spr.battler.nil? # Select avalaible battler
-    end.each do |spr|
+    batch = sprset.battler_sprites.select do |spr|
+      !spr.battler.nil? #&& !spr.collapsing? # Select avalaible battler
+    end
+    batch.each do |spr|
       spr.fadein(@acts[1]) if spr.battler.alive? || spr.battler.actor?
     end
   end
@@ -1935,7 +2109,7 @@ class Game_Battler < Game_BattlerBase
   end
   # --------------------------------------------------------------------------
   # New method : Cutin Start [:cutin_start,]
-  # --------------------------------------------------------------------------  
+  # --------------------------------------------------------------------------
   def setup_cutin
     return TSBS.error(@acts[0], 3, @used_sequence) if @acts.size < 4
     #-------------------------------------------------------------------------
@@ -1950,21 +2124,21 @@ class Game_Battler < Game_BattlerBase
   end
   # --------------------------------------------------------------------------
   # New method : Cutin Fade [:cuitn_fade,]
-  # --------------------------------------------------------------------------  
+  # --------------------------------------------------------------------------
   def setup_cutin_fade
     return TSBS.error(@acts[0], 2, @used_sequence) if @acts.size < 3
     get_spriteset.cutin.fade(@acts[1], @acts[2])
   end
   # --------------------------------------------------------------------------
   # New method : Cutin Slide [:cutin_slide,]
-  # --------------------------------------------------------------------------  
+  # --------------------------------------------------------------------------
   def setup_cutin_slide
     return TSBS.error(@acts[0], 2, @used_sequence) if @acts.size < 3
     get_spriteset.cutin.slide(@acts[1], @acts[2], @acts[3])
   end
   # --------------------------------------------------------------------------
   # New method : Setup Targets flip [:target_flip,]
-  # --------------------------------------------------------------------------  
+  # -------------------------------------------------------------------------- 
   def setup_targets_flip
     return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
     if area_flag
@@ -1977,7 +2151,7 @@ class Game_Battler < Game_BattlerBase
   end
   # --------------------------------------------------------------------------
   # New method : Setup Add Plane [:plane_add,]
-  # --------------------------------------------------------------------------    
+  # --------------------------------------------------------------------------
   def setup_add_plane
     return TSBS.error(@acts[0], 3, @used_sequence) if @acts.size < 3
     file = @acts[1]
@@ -1985,11 +2159,12 @@ class Game_Battler < Game_BattlerBase
     soy = @acts[3] # Scroll Y 
     z = (@acts[4] ? 400 : 4)
     dur = @acts[5] || 2
-    get_spriteset.battle_plane.set(file,sox,soy,z,dur)
+    opac = @acts[6] || 255
+    get_spriteset.battle_plane.set(file,sox,soy,z,dur,opac)
   end
   # --------------------------------------------------------------------------
   # New method : Setup Delete Plane [:plane_del,]
-  # --------------------------------------------------------------------------    
+  # --------------------------------------------------------------------------
   def setup_del_plane
     return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
     fade = @acts[1]
@@ -2041,10 +2216,11 @@ class Game_Battler < Game_BattlerBase
       size = target_array.size
       xpos = target_array.inject(0) {|r,battler| r + battler.x}/size
       ypos = target_array.inject(0) {|r,battler| r + battler.y}/size
+      xpos += @acts[1]
       xpos *= -1 if flip
       rev = @acts[3]
       rev = true if rev.nil?
-      smooth_move(xpos, ypos, @acts[3])
+      smooth_move(xpos, ypos + @acts[2], @acts[3])
       return
     end
     return unless target
@@ -2074,9 +2250,24 @@ class Game_Battler < Game_BattlerBase
     return TSBS.error(@acts[0], 2, @used_sequence) if @acts.size < 3
     count = @acts[1]
     action_key = @acts[2]
+    is_string = action_key.is_a?(String)
     count.times do
-      @acts = [:action, action_key]
-      execute_sequence
+      if is_string
+        @acts = [:action, action_key]
+        execute_sequence
+      else
+        begin
+          action_key.each do |action|
+            @acts = action
+            execute_sequence
+          end
+        rescue
+          ErrorSound.play
+          text = "Wrong [:loop] parameter!"
+          msgbox text
+          exit
+        end
+      end
     end
   end
   # --------------------------------------------------------------------------
@@ -2133,9 +2324,11 @@ class Game_Battler < Game_BattlerBase
       act_result = action_key # Assign action key
       break # Break loop checking
     end
+    
     # Evaluate action key
     return unless act_result
     is_array = act_result.is_a?(Array)
+    
     # If nested array (triggered if first element is array)
     if is_array && act_result[0].is_a?(Array)
       act_result.each do |action|
@@ -2163,9 +2356,61 @@ class Game_Battler < Game_BattlerBase
   # New method : Setup change carried skill [:change_skill,]
   # --------------------------------------------------------------------------
   def setup_change_skill
+    return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
     skill = $data_skills[@acts[1]]
     return unless skill
     self.item_in_use = copy(skill)
+  end
+  # --------------------------------------------------------------------------
+  # New method : Setup check collapse [:check_collapse,]
+  # --------------------------------------------------------------------------
+  def setup_check_collapse
+    target_array.each do |tar|
+      tar.target = self
+      SceneManager.scene.check_collapse(tar)
+    end
+  end
+  # --------------------------------------------------------------------------
+  # New method : Setup check collapse [:slow_motion,]
+  # --------------------------------------------------------------------------
+  def setup_slow_motion
+    return TSBS.error(@acts[0], 2, @used_sequence) if @acts.size < 3
+    $game_temp.slowmotion_frame = @acts[1]
+    $game_temp.slowmotion_rate = @acts[2]
+  end
+  # --------------------------------------------------------------------------
+  # New method : Setup timestop [:timestop,]
+  # --------------------------------------------------------------------------
+  def setup_timestop
+    return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
+    @acts[1].times { Graphics.update }
+  end
+  # --------------------------------------------------------------------------
+  # New method : Setup Projectile Damage Scale [:proj_scale,]
+  # --------------------------------------------------------------------------
+  def setup_proj_scale
+    return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
+    @proj_scale = @acts[1]
+  end
+  # --------------------------------------------------------------------------
+  # New method : Setup common event [:com_event,]
+  # --------------------------------------------------------------------------
+  def setup_tsbs_common_event
+    return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
+    @acts[1] = 0 unless @acts[1].is_a?(Numeric)
+    $game_temp.tsbs_event = @acts[1]
+    Fiber.yield
+  end
+  # --------------------------------------------------------------------------
+  # New method : Setup graphics transition [:scr_trans,]
+  # --------------------------------------------------------------------------
+  def setup_transition
+    return TSBS.error(@acts[0], 2, @used_sequence) if @acts.size < 3
+    Fiber.yield
+    name = "Graphics/Pictures/" + @acts[1]
+    dur = @acts[2]
+    vague = @acts[3] || 40
+    Graphics.transition(dur, name, vague)
   end
   # --------------------------------------------------------------------------
   # New method : Method for wait [:wait,]
@@ -2176,7 +2421,7 @@ class Game_Battler < Game_BattlerBase
     update_timed_hit if @timed_hit_count > 0
   end
   # --------------------------------------------------------------------------
-  # New method : Get next symbol (not used)
+  # New method : Get next symbol (Outdated function in early ver. Not used)
   # --------------------------------------------------------------------------
   def next_is?(symbol)
     next_ary = animation_array[@anim_index + 2]
@@ -2254,7 +2499,7 @@ class Game_Battler < Game_BattlerBase
       "Error occured on #{klass} in ID #{id}\n" +
       "Undefined sequence key \"#{seq_key}\" for #{phase} phase\n\n" +
       "This is your fault. Not this script error!"
-    raise result
+    msgbox result
     exit
   end
   # --------------------------------------------------------------------------
@@ -2264,7 +2509,7 @@ class Game_Battler < Game_BattlerBase
     ErrorSound.play
     text = "Sequence key : #{phase_sequence[battle_phase].call}\n" + 
     "Uninitalized Constant for #{string} in :action mode"
-    raise text
+    msgbox text
     exit
   end
   # --------------------------------------------------------------------------
@@ -2356,6 +2601,15 @@ class Game_Battler < Game_BattlerBase
     return 0
   end
   # --------------------------------------------------------------------------
+  # New method : Anim Behind?
+  # --------------------------------------------------------------------------
+  def anim_behind?
+    states.each do |state|
+      return state.anim_behind? if state.state_anim > 0
+    end
+    return false
+  end  
+  # --------------------------------------------------------------------------
   # New method : Screen Z
   # --------------------------------------------------------------------------
   def screen_z
@@ -2373,7 +2627,7 @@ class Game_Battler < Game_BattlerBase
   # --------------------------------------------------------------------------
   def additional_z
     battle_phase == :idle || battle_phase == :hurt ?  0 : 1
-    # Action battler displayed above another (increment by 1)
+    # Active battler displayed above another (increment by 1)
   end
   # --------------------------------------------------------------------------
   # Alias method : Add state
@@ -2437,7 +2691,7 @@ class Game_Battler < Game_BattlerBase
   # --------------------------------------------------------------------------
   alias tsbs_counter item_cnt
   def item_cnt(user, item)
-    return 0 if item.anti_counter? || dead?
+    return 0 if item.anti_counter? || user.battle_phase == :counter || dead? 
     tsbs_counter(user, item)
   end
   # --------------------------------------------------------------------------
@@ -2453,6 +2707,7 @@ class Game_Battler < Game_BattlerBase
   # --------------------------------------------------------------------------
   alias tsbs_eva item_eva
   def item_eva(user, item)
+    return 0 if user.force_hit
     return 0 if item.always_hit?
     tsbs_eva(user, item)
   end
@@ -2461,6 +2716,7 @@ class Game_Battler < Game_BattlerBase
   # --------------------------------------------------------------------------
   alias tsbs_hit item_hit
   def item_hit(user, item)
+    return 1 if user.force_hit
     return 1 if item.always_hit?
     tsbs_hit(user, item)
   end
@@ -2488,6 +2744,28 @@ class Game_Battler < Game_BattlerBase
     end
     return ""
   end
+  # --------------------------------------------------------------------------
+  # New method : Target real range (pixel)
+  # --------------------------------------------------------------------------
+  def target_range
+    return 9999 if target.nil?
+    return 0 if area_flag
+    rx = (self.x - target.x).abs
+    ry = (self.y - target.y).abs
+    return Math.sqrt((rx**2) + (ry**2))
+  end
+  # --------------------------------------------------------------------------
+  # New method : Is event running?
+  # --------------------------------------------------------------------------
+  def event_running?
+    SceneManager.scene.event_running?
+  end
+  # --------------------------------------------------------------------------
+  # New method : Shadow position Y
+  # --------------------------------------------------------------------------
+  def shadow_y
+    return screen_z - additional_z
+  end
   
 end
 
@@ -2495,7 +2773,7 @@ end
 # ** Game_Actor
 #------------------------------------------------------------------------------
 #  This class handles actors. It is used within the Game_Actors class
-# ($game_actors) and is also referenced from the Game_Party class ($game_party).
+# ($game_actors) and is also referenced from the Game_Party class ($game_party)
 #==============================================================================
 
 class Game_Actor < Game_Battler
@@ -2515,10 +2793,18 @@ class Game_Actor < Game_Battler
     @battler_name = data_battler.battler_name
   end
   # --------------------------------------------------------------------------
+  # New Method : Clear TSBS
+  # --------------------------------------------------------------------------
+  def clear_tsbs
+    super
+    @ori_x = 0
+    @ori_y = 0
+  end
+  # --------------------------------------------------------------------------
   # Overwrite method : Fiber object thread
   # --------------------------------------------------------------------------
   def fiber_obj
-    $game_temp.actors_fiber[index]
+    $game_temp.actors_fiber[id]
   end
   # --------------------------------------------------------------------------
   # Alias method : On Battle Start
@@ -2537,13 +2823,13 @@ class Game_Actor < Game_Battler
   # New method : Original X position
   # --------------------------------------------------------------------------
   def original_x
-    ActorPos[index][0]
+    ActorPos[index][0] || 0 rescue 0
   end
   # --------------------------------------------------------------------------
   # New method : Original Y position
   # --------------------------------------------------------------------------
   def original_y
-    ActorPos[index][1]
+    ActorPos[index][1] || 0 rescue 0
   end
   # --------------------------------------------------------------------------
   # New method : Screen X
@@ -2662,6 +2948,7 @@ class Game_Enemy < Game_Battler
   alias tsbs_enemy_init initialize
   def initialize(index, enemy_id)
     tsbs_enemy_init(index, enemy_id)
+    @screen_z = $game_troop.troop.members[index].y
     @flip = default_flip
   end
   # --------------------------------------------------------------------------
@@ -2705,7 +2992,7 @@ class Game_Enemy < Game_Battler
   # --------------------------------------------------------------------------
   alias tsbs_ename battler_name
   def battler_name
-    return "#{data_battler.sprite_name + state_trans_name}_#{battler_index}" if 
+    return "#{data_battler.sprite_name + state_trans_name}_#{battler_index}" if
       data_battler.use_sprite
     return tsbs_ename + state_trans_name
   end
@@ -2742,6 +3029,13 @@ class Game_Enemy < Game_Battler
     end
     @collapsed = true
   end
+  
+  alias tsbs_collapsound_effect tsbs_perform_collapse_effect
+  def tsbs_perform_collapse_effect
+    tsbs_collapsound_effect
+    data_battler.collapsound.play
+  end
+  
 end
 
 #==============================================================================
@@ -2759,6 +3053,63 @@ class Game_Party < Game_Unit
     TSBS::ActorPos.size
   end
 end
+#==============================================================================
+# ** Game_BattleEvent
+#------------------------------------------------------------------------------
+#  This class handles common events call in battle scene. It's used within
+# Scene_Base and TSBS script.
+#==============================================================================
+
+class Game_BattleEvent
+  #--------------------------------------------------------------------------
+  # * Initialize
+  #--------------------------------------------------------------------------
+  def initialize
+  end
+  #--------------------------------------------------------------------------
+  # * Refresh
+  #--------------------------------------------------------------------------
+  def refresh
+    if @event
+      @interpreter = Game_Interpreter.new
+      @interpreter.setup(@event.list) 
+      @event = nil
+    else
+      @interpreter = nil
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Frame Update
+  #--------------------------------------------------------------------------
+  def update
+    if @interpreter
+      @interpreter.update
+      unless @interpreter.running?
+        @interpreter = nil 
+        SceneManager.scene.status_window.open
+      end
+    else
+      update_tsbs_event
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Frame Update
+  #--------------------------------------------------------------------------
+  def update_tsbs_event
+    if $game_temp.tsbs_event > 0
+      id = $game_temp.tsbs_event
+      @event = $data_common_events[id]
+      $game_temp.tsbs_event = 0
+      refresh
+    end
+  end
+  #--------------------------------------------------------------------------
+  # * Active?
+  #--------------------------------------------------------------------------
+  def active?
+    !@interpreter.nil? && @interpreter.running?
+  end
+end
 
 #==============================================================================
 # ** Sprite_Base
@@ -2769,7 +3120,7 @@ end
 class Sprite_Base
   # --------------------------------------------------------------------------
   # Alias method : Update Animation
-  # --------------------------------------------------------------------------  
+  # --------------------------------------------------------------------------
   alias tsbs_update_anim update_animation
   def update_animation
     return if $game_temp.global_freeze
@@ -2814,7 +3165,7 @@ class Sprite_AnimState < Sprite_Base
     move_animation(diff_x, diff_y)
     self.x = @spr_battler.x
     self.y = @spr_battler.y
-    self.z = @spr_battler.z + 2
+    self.z = @spr_battler.z + (anim_behind? ? -2 : 2)
   end
   # --------------------------------------------------------------------------
   # * Update state animation
@@ -2906,12 +3257,12 @@ class Sprite_AnimState < Sprite_Base
         sprite.angle = cell_data[i, 4]
         sprite.mirror = (cell_data[i, 5] == 1)
       end
-      sprite.z = self.z + 1 #+ i
+      sprite.z = self.z + (anim_behind? ? -16 : 1)
       sprite.ox = 96
       sprite.oy = 96
       sprite.zoom_x = cell_data[i, 3] / 100.0
       sprite.zoom_y = cell_data[i, 3] / 100.0
-      sprite.opacity = cell_data[i, 6] * self.opacity / 255.0
+      sprite.opacity = cell_data[i, 6] * @spr_battler.opacity / 255.0
       sprite.blend_type = cell_data[i, 7]
     end
   end
@@ -2930,6 +3281,13 @@ class Sprite_AnimState < Sprite_Base
     when 3
       @spr_battler.flash(nil, timing.flash_duration * @ani_rate)
     end
+  end
+  # --------------------------------------------------------------------------
+  # * Anim Behind?
+  # --------------------------------------------------------------------------
+  def anim_behind?
+    return false unless @spr_battler.battler
+    return @spr_battler.battler.anim_behind?
   end
   
 end
@@ -3015,7 +3373,7 @@ class Sprite_AnimGuard < Sprite_Base
       sprite.oy = 96
       sprite.zoom_x = cell_data[i, 3] / 100.0
       sprite.zoom_y = cell_data[i, 3] / 100.0
-      sprite.opacity = cell_data[i, 6] * self.opacity / 255.0
+      sprite.opacity = cell_data[i, 6] * @spr_battler.opacity / 255.0
       sprite.blend_type = cell_data[i, 7]
     end
   end
@@ -3071,6 +3429,7 @@ end
 #==============================================================================
 
 class Sprite_Battler < Sprite_Base
+  include TSBS_AnimRewrite
   include TSBS
   # --------------------------------------------------------------------------
   # Alias method : Initialize
@@ -3092,7 +3451,8 @@ class Sprite_Battler < Sprite_Base
   def start_animation(anim, mirror = false)
     @anim_top = $game_temp.anim_top
     @anim_follow = $game_temp.anim_follow
-    $game_temp.anim_follow = $game_temp.anim_top = false
+    $game_temp.anim_top = 0
+    $game_temp.anim_follow = false
     tsbs_start_anim(anim, mirror)
   end
   # --------------------------------------------------------------------------
@@ -3203,6 +3563,14 @@ class Sprite_Battler < Sprite_Base
     end && !@battler.finish || (@battler && @battler.moving?)
   end
   # --------------------------------------------------------------------------
+  # New method : Battler is busy? (for skill)
+  # --------------------------------------------------------------------------
+  def skill_busy?
+    @battler && (BusyPhases - [:collapse]).any? do |phase|
+      phase == @battler.battle_phase
+    end && !@battler.finish || (@battler && @battler.moving?)
+  end
+  # --------------------------------------------------------------------------
   # New method : update visibility
   # --------------------------------------------------------------------------
   def update_visible
@@ -3225,6 +3593,7 @@ class Sprite_Battler < Sprite_Base
   # --------------------------------------------------------------------------
   def update_color
     self.color.set(@battler.state_color) if @color_flash.alpha == 0
+    # Note: @color_flash taken from my Basic Modules v1.5b (Clone image)
   end
   # --------------------------------------------------------------------------
   # New method : update battler opacity
@@ -3259,7 +3628,7 @@ class Sprite_Battler < Sprite_Base
   end
   # --------------------------------------------------------------------------
   # New method : update start balloon
-  # --------------------------------------------------------------------------  
+  # --------------------------------------------------------------------------
   def update_start_balloon
     if !@balloon_sprite && @battler.balloon_id > 0
       @balloon_id = @battler.balloon_id
@@ -3292,7 +3661,6 @@ class Sprite_Battler < Sprite_Base
     self.blend_type = 1
     self.color.set(255, 255, 255, 255 - alpha)
     self.opacity = alpha
-#~     self.src_rect.height -= 0.5
     Sound.play_boss_collapse2 if @effect_duration % 20 == 19
   end
   # --------------------------------------------------------------------------
@@ -3308,51 +3676,6 @@ class Sprite_Battler < Sprite_Base
     @anim_guard.dispose
     @shadow.dispose
     @balloon_sprite.dispose if @balloon_sprite
-  end
-  # --------------------------------------------------------------------------
-  # Overwrite method : animation set sprites
-  # --------------------------------------------------------------------------
-  def animation_set_sprites(frame)
-    cell_data = frame.cell_data
-    @ani_sprites.each_with_index do |sprite, i|
-      next unless sprite
-      pattern = cell_data[i, 0]
-      if !pattern || pattern < 0
-        sprite.visible = false
-        next
-      end
-      sprite.bitmap = pattern < 100 ? @ani_bitmap1 : @ani_bitmap2
-      sprite.visible = true
-      sprite.src_rect.set(pattern % 5 * 192,
-        pattern % 100 / 5 * 192, 192, 192)
-      if @ani_mirror
-        sprite.x = @ani_ox - cell_data[i, 1]
-        sprite.y = @ani_oy + cell_data[i, 2]
-        sprite.angle = (360 - cell_data[i, 4])
-        sprite.mirror = (cell_data[i, 5] == 0)
-      else
-        sprite.x = @ani_ox + cell_data[i, 1]
-        sprite.y = @ani_oy + cell_data[i, 2]
-        sprite.angle = cell_data[i, 4]
-        sprite.mirror = (cell_data[i, 5] == 1)
-      end
-      # ---------------------------------------------
-      # If animation position is to screen || on top?
-      # ---------------------------------------------
-      if (@animation.position == 3 && !@anim_top == -1) || @anim_top == 1
-        sprite.z = self.z + 400 + i  # Always display in top
-      elsif @anim_top == -1
-        sprite.z = 3 + i
-      else
-        sprite.z = self.z + 2 + i
-      end
-      sprite.ox = 96
-      sprite.oy = 96
-      sprite.zoom_x = cell_data[i, 3] / 100.0
-      sprite.zoom_y = cell_data[i, 3] / 100.0
-      sprite.opacity = cell_data[i, 6] * self.opacity / 255.0
-      sprite.blend_type = cell_data[i, 7]
-    end
   end
   #--------------------------------------------------------------------------
   # New Method : Start Balloon
@@ -3452,11 +3775,25 @@ class Sprite_Battler < Sprite_Base
     self.x = @battler.screen_x
     self.y = @battler.screen_y
   end
-  
+  # --------------------------------------------------------------------------
+  # Alias Method : Flash
+  # --------------------------------------------------------------------------
   alias tsbs_color_flash flash
   def flash(color, duration)
     self.color.set(EmptyColor)
     tsbs_color_flash(color, duration)
+  end
+  # --------------------------------------------------------------------------
+  # New Method : Is collapsing?
+  # --------------------------------------------------------------------------
+  def collapsing?
+    @effect_type == :collapse
+  end
+  # --------------------------------------------------------------------------
+  # New Method : Update collapse opacity (to prevent rare case bug)
+  # --------------------------------------------------------------------------
+  def update_collapse_opacity
+    self.opacity = 256 - (48 - @effect_duration) * 6
   end
   
 end
@@ -3541,8 +3878,9 @@ class Sprite_Projectile < Sprite_Base
   # * Disposing sprite
   # --------------------------------------------------------------------------
   def process_dispose
-    if rand < target.item_mrf(@subject, item) && !@return
-      # If target has magic reflection ~
+    if !target.is_a?(Array) && rand < target.item_mrf(@subject, item) && 
+      !@return
+      # If not multitargets and target has magic reflection
       target.animation_id = target.data_battler.reflect_anim
       target.result.reflected = true
       SceneManager.scene.damage.display_reflect(target)
@@ -3552,15 +3890,23 @@ class Sprite_Projectile < Sprite_Base
       if @return # If current projectile is back to caster
         dispose_method
       else
-        SceneManager.scene.tsbs_apply_item(target, item, subject) # Do damage
-        anim_id = target.anim_guard_id
-        cond = anim_id > 0 && !item.damage.recover? && 
-          !item.ignore_anim_guard? && !item.parallel_anim?
-        target.animation_id = (cond ? anim_id : item.animation_id)
-        target.animation_mirror = subject.flip
-        if item.parallel_anim?
-          target.anim_guard = anim_id 
-          target.anim_guard_mirror = target.flip
+        # If multi targets
+        if target.is_a?(Array)
+          target.each {|trg| apply_item(trg, false)}
+          handler = get_spriteset.one_anim
+          size = target.size
+          xpos = target.inject(0) {|r,battler| r + battler.screen_x}/size
+          ypos = target.inject(0) {|r,battler| r + battler.screen_y}/size
+          zpos = target.inject(0) {|r,battler| r + battler.screen_z}/size
+          handler.set_position(xpos, ypos, zpos)
+          sprites = target.collect {|t| get_spriteset.get_sprite(t)}
+          handler.target_sprites = sprites
+          anim_id = item.animation_id
+          mirror = subject.flip
+          $game_temp.one_animation_id = anim_id
+          $game_temp.one_animation_flip = mirror
+        else # If single target
+          apply_item(target, true)
         end
         if boomerang
           @jump = @jump * -1
@@ -3573,8 +3919,25 @@ class Sprite_Projectile < Sprite_Base
     end
   end
   # --------------------------------------------------------------------------
+  # * Apply item
+  # --------------------------------------------------------------------------
+  def apply_item(trg, animation)
+    SceneManager.scene.tsbs_apply_item(trg, item, subject) # Do damage
+    anim_id = trg.anim_guard_id
+    cond = anim_id > 0 && !item.damage.recover? && !item.ignore_anim_guard? && 
+      !item.parallel_anim?
+    if animation
+      trg.animation_id = (cond ? anim_id : item.animation_id)
+      trg.animation_mirror = subject.flip
+    end
+    if item.parallel_anim?
+      trg.anim_guard = anim_id 
+      trg.anim_guard_mirror = trg.flip
+    end
+  end
+  # --------------------------------------------------------------------------
   # * Disposal method
-  # --------------------------------------------------------------------------  
+  # --------------------------------------------------------------------------
   def dispose_method
     if @afterimage
        @afterimage = false
@@ -3641,15 +4004,21 @@ class Sprite_Projectile < Sprite_Base
   # * Make aim
   # --------------------------------------------------------------------------
   def make_aim(dur, jump)
-    spr_target = get_spriteset.get_sprite(target)
-    tx = target.screen_x
-    case target_aim
-    when :feet
-      ty = target.screen_y
-    when :middle
-      ty = target.screen_y - spr_target.height/2
-    when :head
-      ty = target.screen_y - spr_target.height
+    if target.is_a?(Array)
+      size = target.size
+      tx = target.inject(0) {|r,battler| r + battler.screen_x}/size
+      ty = target.inject(0) {|r,battler| r + battler.screen_y}/size
+    else
+      spr_target = get_spriteset.get_sprite(target)
+      tx = target.x
+      case target_aim
+      when :feet
+        ty = target.screen_y
+      when :middle
+        ty = target.screen_y - spr_target.height/2
+      when :head
+        ty = target.screen_y - spr_target.height
+      end
     end
     goto(tx,ty,dur,jump)
   end
@@ -3706,10 +4075,9 @@ class Sprite_BattlerShadow < Sprite
   def update_position
     if @sprite_battler.battler
       self.x = @sprite_battler.battler.screen_x
-      self.y = @sprite_battler.battler.screen_z + shift_y - 
-        @sprite_battler.battler.additional_z
+      self.y = @sprite_battler.battler.shadow_y + shift_y
     end
-    self.z = @sprite_battler.z - 2
+    self.z = 3
   end
   # --------------------------------------------------------------------------
   # * Update opacity
@@ -3721,7 +4089,9 @@ class Sprite_BattlerShadow < Sprite
   # * Update opacity
   # --------------------------------------------------------------------------
   def update_visible
-    self.visible = @sprite_battler.visible && TSBS::UseShadow
+    self.visible = (@sprite_battler.battler && 
+      !@sprite_battler.battler.data_battler.no_shadow) && 
+      @sprite_battler.visible && TSBS::UseShadow
   end
   # --------------------------------------------------------------------------
   # * Update
@@ -3749,6 +4119,24 @@ end
 #==============================================================================
 
 class Sprite_BattlerIcon < Sprite_Base
+  #============================================================================
+  # Dummy Coordinate Class for icon movement
+  #----------------------------------------------------------------------------
+  class Dummy_Coordinate
+    attr_accessor :x
+    attr_accessor :y
+    include THEO::Movement  # Import core movement
+    
+    def initialize
+      @x = 0
+      @y = 0
+      set_obj(self)
+    end
+    
+    alias screen_x x
+    alias screen_y y
+  end
+  #============================================================================
   attr_reader :battler  # Battler
   include TSBS          # Import TSBS constantas
   # --------------------------------------------------------------------------
@@ -3759,8 +4147,7 @@ class Sprite_BattlerIcon < Sprite_Base
     @battler = battler
     @afterimage_opac = 20
     @afterimage_rate = 3
-    @x_plus = 0
-    @y_plus = 0
+    @dummy = Dummy_Coordinate.new
     @above_char = false
     @used_key = ""
     self.anchor = 0
@@ -3809,7 +4196,7 @@ class Sprite_BattlerIcon < Sprite_Base
     when 4 # Bottom Right
       self.ox = self.oy = 24
     else
-      point = TSBS::IconAnchor[value]
+      point = IconAnchor[value]
       self.ox = point[0]
       self.oy = point[1]
     end
@@ -3819,6 +4206,7 @@ class Sprite_BattlerIcon < Sprite_Base
   # --------------------------------------------------------------------------
   def update
     super
+    @dummy.update_move
     update_placement
     update_key unless battler.icon_key.empty?
   end
@@ -3826,9 +4214,12 @@ class Sprite_BattlerIcon < Sprite_Base
   # * Update placement related to battler
   # --------------------------------------------------------------------------
   def update_placement
-    self.x = battler.screen_x + @x_plus
-    self.y = battler.screen_y + @y_plus
+    self.x = battler.screen_x + @dummy.screen_x
+    self.y = battler.screen_y + @dummy.screen_y
     self.z = battler.screen_z + (@above_char ? 1 : -1)
+    sprset = get_spriteset
+    self.opacity = sprset.get_sprite(battler).opacity if sprset.class ==
+      Spriteset_Battle rescue return
   end
   # --------------------------------------------------------------------------
   # * Update icon key
@@ -3836,17 +4227,18 @@ class Sprite_BattlerIcon < Sprite_Base
   def update_key
     actor = battler # Just make alias
     @used_key = battler.icon_key
-    array = TSBS::Icons[@used_key]
+    array = Icons[@used_key]
+    return icon_error unless array
     self.anchor = array[0]
-    @x_plus = (battler.flip ? -array[1] : array[1])
-    @y_plus = array[2]
+    @dummy.x = (battler.flip ? -array[1] : array[1])
+    @dummy.y = array[2]
     @above_char = array[3]
     update_placement
     self.angle = array[4]
     target = array[5]
     duration = array[6]
     if array[7].is_a?(String)
-      icon_index = eval(array[7])
+      icon_index = (eval(array[7]) rescue 0)
     elsif array[7] >= 0
       icon_index = array[7]
     elsif !array[7].nil?
@@ -3857,12 +4249,25 @@ class Sprite_BattlerIcon < Sprite_Base
           (battler.weapons[0].icon_index rescue 0))
       end
     end
-    self.mirror = !array[8].nil?
+    self.mirror = (array[8].nil? ? false : array[8])
+    if array[9] && array[10] && array[11]
+      @dummy.slide(array[9], array[10], array[11])
+    end
     icon_index = icon_index || 0
     self.icon_index = icon_index
     change_angle(target, duration)
     battler.icon_key = ""
   end
+  # --------------------------------------------------------------------------
+  # * Icon Error Recognition
+  # --------------------------------------------------------------------------
+  def icon_error
+    ErrorSound.play
+    text = "Undefined icon key : #{@used_key}"
+    msgbox text
+    exit
+  end
+  
 end
 
 #==============================================================================
@@ -3887,6 +4292,99 @@ class Sprite_BattleCutin < Sprite
 end
 
 #==============================================================================
+# ** Sprite_BattleCutin
+#------------------------------------------------------------------------------
+#  This sprite handles one animation display for area attack
+#==============================================================================
+
+class Sprite_OneAnim < Sprite_Base
+  attr_accessor :target_sprites
+  include TSBS_AnimRewrite
+  # --------------------------------------------------------------------------
+  # * Initialize
+  # --------------------------------------------------------------------------
+  def initialize(viewport)
+    @multianimes = []
+    @target_sprites = []
+    super(viewport)
+  end
+  # --------------------------------------------------------------------------
+  # * Start Animation
+  # --------------------------------------------------------------------------
+  def start_animation(anime, flip = false)
+    if $imported[:TSBS_MultiAnime]
+      spr_anim = Sprite_MultiAnime.new(viewport, self, anime, flip)
+      @multianimes.push(spr_anim)
+      return
+    end
+    @anim_top = $game_temp.anim_top
+    $game_temp.anim_top = 0
+    super(anime, flip)
+  end
+  # --------------------------------------------------------------------------
+  # * Set Position
+  # --------------------------------------------------------------------------
+  def set_position(x,y,z)
+    self.x = x
+    self.y = y
+    self.z = z
+  end
+  # --------------------------------------------------------------------------
+  # * Update
+  # --------------------------------------------------------------------------
+  def update
+    super
+    update_one_anim
+    @multianimes.delete_if do |anime|
+      anime.update
+      anime.disposed?
+    end
+  end
+  # --------------------------------------------------------------------------
+  # * Update one animation starting flag
+  # --------------------------------------------------------------------------
+  def update_one_anim
+    if $game_temp.one_animation_id > 0
+      anim = $data_animations[$game_temp.one_animation_id]
+      flip = $game_temp.one_animation_flip
+      start_animation(anim, flip)
+      $game_temp.one_animation_id = 0
+      $game_temp.one_animation_flip = false
+    end
+  end
+  # --------------------------------------------------------------------------
+  # * Dispose
+  # --------------------------------------------------------------------------
+  def dispose
+    super
+    @multianimes.each do |anime|
+      anime.dispose
+    end
+  end
+  # --------------------------------------------------------------------------
+  # * Animation?
+  # --------------------------------------------------------------------------
+  def animation?
+    return !@multianimes.empty? if $imported[:TSBS_MultiAnime]
+    return super
+  end
+  # --------------------------------------------------------------------------
+  # * Update animation
+  # --------------------------------------------------------------------------
+  def update_animation
+    return if $imported[:TSBS_MultiAnime]
+    super
+  end  
+  # --------------------------------------------------------------------------
+  # * Overwrite flash
+  # --------------------------------------------------------------------------
+  def flash(*args)
+    @target_sprites.each {|trg| trg.flash(*args)}
+  end
+  
+end
+
+#==============================================================================
 # ** Battle_Plane
 #------------------------------------------------------------------------------
 #  This class handles single plane to display plane (fog/parallax) in battle
@@ -3905,9 +4403,16 @@ class Battle_Plane < Plane
   # --------------------------------------------------------------------------
   def initialize(viewport)
     super(viewport)
+    init_fade_members
     setfade_obj(self)
     @scroll_ox = 0.0
     @scroll_oy = 0.0
+    reset_oxoy
+  end
+  # --------------------------------------------------------------------------
+  # * Reset ori oxoy
+  # --------------------------------------------------------------------------
+  def reset_oxoy
     @ori_ox = 0.0
     @ori_oy = 0.0
   end
@@ -3924,13 +4429,14 @@ class Battle_Plane < Plane
   # --------------------------------------------------------------------------
   # * Set data
   # --------------------------------------------------------------------------
-  def set(file, sox, soy, z, show_dur)
+  def set(file, sox, soy, z, show_dur, max_opac = 255)
     self.bitmap = Cache.picture(file)
+    reset_oxoy
     @scroll_ox = sox
     @scroll_oy = soy
     self.z = z
     self.opacity = 0
-    fadein(show_dur)
+    fade(max_opac, show_dur)
   end
   
 end
@@ -3950,6 +4456,7 @@ class Spriteset_Battle
   attr_reader :focus_bg       # Focus background
   attr_reader :cutin          # Cutin sprite
   attr_reader :battle_plane   # Battle Planes
+  attr_reader :one_anim       # One Animation Sprite
   # --------------------------------------------------------------------------
   # Alias method : Initialize
   # --------------------------------------------------------------------------
@@ -3968,6 +4475,7 @@ class Spriteset_Battle
     create_focus_sprite
     create_cutin_sprite
     create_battle_planes
+    create_oneanim_sprite
   end
   # --------------------------------------------------------------------------
   # New method : Create battler icon
@@ -4003,11 +4511,25 @@ class Spriteset_Battle
     @battle_plane = Battle_Plane.new(@viewport1)
   end
   # --------------------------------------------------------------------------
+  # New method : Create one animation dummy sprite (for handler)
+  # --------------------------------------------------------------------------  
+  def create_oneanim_sprite
+    @one_anim = Sprite_OneAnim.new(@viewport1)
+  end
+  # --------------------------------------------------------------------------
   # New method : spriteset is busy?
   # --------------------------------------------------------------------------
   def busy?
     (@enemy_sprites + @actor_sprites).any? do |sprite|
       sprite.busy?
+    end
+  end
+  # --------------------------------------------------------------------------
+  # New method : spriteset is busy? (for skill)
+  # --------------------------------------------------------------------------
+  def skill_busy?
+    (@enemy_sprites + @actor_sprites).any? do |sprite|
+      sprite.skill_busy?
     end
   end
   # --------------------------------------------------------------------------
@@ -4035,6 +4557,7 @@ class Spriteset_Battle
     @focus_bg.update
     @cutin.update
     @battle_plane.update
+    @one_anim.update
   end
   # --------------------------------------------------------------------------
   # New method : update projectiles
@@ -4081,12 +4604,29 @@ class Spriteset_Battle
   # --------------------------------------------------------------------------
   alias tsbs_dispose dispose
   def dispose
-    (@icons + [@focus_bg, @cutin]).each do |extra|
+    (@icons + [@focus_bg, @cutin, @one_anim]).each do |extra|
       extra.dispose unless extra.disposed?
     end
     @battle_plane.dispose
     tsbs_dispose
   end
+  # --------------------------------------------------------------------------
+  # New method : Prevent collapse glitch for slow motion effect
+  # --------------------------------------------------------------------------
+  def prevent_collapse_glitch
+    battler_sprites.each do |spr|
+      next unless spr.collapsing?
+      spr.update_collapse_opacity
+    end
+  end
+  # --------------------------------------------------------------------------
+  # Alias method : Animation?
+  # --------------------------------------------------------------------------
+  alias tsbs_animation? animation?
+  def animation?
+    tsbs_animation? || @one_anim.animation?
+  end
+  
 end
 
 #==============================================================================
@@ -4098,6 +4638,7 @@ end
 class Scene_Battle < Scene_Base
   attr_reader :damage
   attr_reader :log_window
+  attr_reader :status_window
   # --------------------------------------------------------------------------
   # Alias method : start
   # --------------------------------------------------------------------------
@@ -4105,6 +4646,13 @@ class Scene_Battle < Scene_Base
   def start
     tsbs_start
     @damage = DamageResults.new(@viewport)
+    @battle_event = Game_BattleEvent.new
+  end
+  # --------------------------------------------------------------------------
+  # New method : Is event running?
+  # --------------------------------------------------------------------------
+  def event_running?
+    @battle_event.active?
   end
   # --------------------------------------------------------------------------
   # Alias method : post_start
@@ -4126,10 +4674,26 @@ class Scene_Battle < Scene_Base
     tsbs_post_start
   end
   # --------------------------------------------------------------------------
+  # New method : Perform slowmotion
+  # Why no Graphics.frame_rate = n ? It makes the graphics screen not 
+  # responsive. So, I decided to make this one
+  # --------------------------------------------------------------------------
+  def perform_slowmotion
+    if $game_temp.slowmotion_frame > 0
+      ($game_temp.slowmotion_rate - 1).times do
+        @spriteset.prevent_collapse_glitch 
+        # Just kill weird glitch for collapse effect
+        Graphics.update
+      end
+      $game_temp.slowmotion_frame -= 1
+    end
+  end
+  # --------------------------------------------------------------------------
   # Alias method : update basic
   # --------------------------------------------------------------------------
   alias theo_tsbs_update_basic update_basic
   def update_basic
+    perform_slowmotion
     all_battle_members.each do |batt_member|
       if batt_member.actor? && !$game_party.battle_members.include?(batt_member)
         next
@@ -4141,72 +4705,129 @@ class Scene_Battle < Scene_Base
   end
   # --------------------------------------------------------------------------
   # Overwrite method : use item
-  # Compatibility? well, I don't really care ~
+  # Compatibility? I will think that later ~
   # --------------------------------------------------------------------------
   def use_item
     item = @subject.current_action.item
     @log_window.display_use_item(@subject, item)
     @subject.use_item(item)
+    if $imported["YEA-LunaticObjects"]
+      lunatic_object_effect(:before, item, @subject, @subject)
+    end
     refresh_status
     targets = @subject.current_action.make_targets.compact
     show_action_sequences(targets, item)
   end
   # --------------------------------------------------------------------------
+  # New method : Wait method exclusively for TSBS
+  # --------------------------------------------------------------------------
+  def tsbs_wait_update
+    update_for_wait
+    @battle_event.update
+  end
+  # --------------------------------------------------------------------------
   # New method : wait for sequence
   # --------------------------------------------------------------------------
   def wait_for_sequence
-    update_for_wait
-    update_for_wait while @spriteset.busy?
+    tsbs_wait_update
+    tsbs_wait_update while @spriteset.busy?
+  end
+  # --------------------------------------------------------------------------
+  # New method : wait for sequence
+  # --------------------------------------------------------------------------
+  def wait_for_skill_sequence
+    tsbs_wait_update
+    tsbs_wait_update while @spriteset.skill_busy?
   end
   # --------------------------------------------------------------------------
   # New method : show action sequence
-  # Showing action sequence for TSBS. It's kinda prochedural. Sorry ...
   # --------------------------------------------------------------------------
-  def show_action_sequences(targets, item)
+  def show_action_sequences(targets, item, subj = @subject)
+    tsbs_action_init(targets, item, subj)
+    tsbs_action_pre(targets, item, subj)
+    tsbs_action_main(targets, item, subj)
+    tsbs_action_post(targets, item, subj)
+    tsbs_action_end(targets, item, subj)
+    wait(tsbs_wait_dur)
+  end
+  # --------------------------------------------------------------------------
+  # New method : wait duration
+  # --------------------------------------------------------------------------
+  def tsbs_wait_dur
+    return 30
+  end
+  # --------------------------------------------------------------------------
+  # New method : action initialize
+  # --------------------------------------------------------------------------
+  def tsbs_action_init(targets, item, subj)
     $game_temp.battler_targets = targets.clone
-    @subject.target_array = targets
-    @subject.item_in_use = copy(item)
+    subj.target_array = targets
+    subj.item_in_use = copy(item)
+  end
+  # --------------------------------------------------------------------------
+  # New method : action preparation sequence
+  # --------------------------------------------------------------------------
+  def tsbs_action_pre(targets, item, subj)
     # Show preparation sequence ~
     if !item.prepare_key.empty?
-      @subject.target = targets[0] if targets.size == 1
-      @subject.battle_phase = :prepare
+      subj.target = targets[0] if targets.size == 1
+      subj.battle_phase = :prepare
       wait_for_sequence
     end    
+  end
+  # --------------------------------------------------------------------------
+  # New method : main action sequence
+  # --------------------------------------------------------------------------
+  def tsbs_action_main(targets, item, subj)
     # Determine if item is not AoE ~
     if !item.area?
-      @subject.area_flag = false
+      subj.area_flag = false
       # Repeat item sequence for target number times
       targets.each do |target|
-        break if @subject.battle_phase == :forced
         # Change target if the target is currently dead
         if target.dead? && !item.for_dead_friend? 
-          target = @subject.opponents_unit.random_target
+          target = subj.opponents_unit.random_target
           break if target.nil? # Break if there is no target avalaible
         end
         # Do sequence
-        @subject.target = target
-        @subject.battle_phase = :skill
-        wait_for_sequence
+        subj.target = target
+        subj.battle_phase = :skill
+        wait_for_skill_sequence
+        break if [:forced, :idle].include?(subj.battle_phase)
       end
     # If item is area of effect damage. Do sequence skill only once
     else
-      @subject.area_flag = true
-      @subject.battle_phase = :skill
-      wait_for_sequence
-      @subject.area_flag = false
+      subj.area_flag = true
+      subj.battle_phase = :skill
+      wait_for_skill_sequence
+      subj.area_flag = false
     end
+  end
+  # --------------------------------------------------------------------------
+  # New method : post action execution
+  # --------------------------------------------------------------------------
+  def tsbs_action_post(targets, item, subj)
     # Determine if item has no return sequence
-    unless item.no_return? || @subject.battle_phase == :forced
-      @subject.battle_phase = :return 
-      wait_for_sequence
+    unless item.no_return? || subj.battle_phase == :forced
+      subj.battle_phase = :return 
     else
-      @subject.battle_phase = :idle
+      subj.battle_phase = :idle
     end
+    wait_for_sequence
+  end
+  # --------------------------------------------------------------------------
+  # New method : action ending
+  # --------------------------------------------------------------------------
+  def tsbs_action_end(targets, item, subj)
     # Clear pointer
-    @subject.item_in_use = nil
-    @subject.target = nil
+    subj.item_in_use = nil
+    subj.target = nil
+    # Compatibility with YEA Lunatic Object
+    if $imported["YEA-LunaticObjects"]
+      lunatic_object_effect(:after, item, subj, subj)
+    end
     # Show message log if sequence has been finished
-    $game_temp.battler_targets += [@subject]
+    $game_temp.battler_targets += [subj]
     $game_temp.battler_targets.uniq.compact.each do |target|
       @log_window.display_action_results(target, item)
       target.reset_pos(15) # Reset battler to current position
@@ -4216,15 +4837,17 @@ class Scene_Battle < Scene_Base
     end
     # Reset damage value
     @damage.reset_value
-    wait(30)
   end
   # --------------------------------------------------------------------------
   # New method : check collapse
   # --------------------------------------------------------------------------
   def check_collapse(target)
     return if target.actor? && target.collapse_key.empty?
-    target.perform_collapse_effect if target.state?(target.death_state_id) || 
+    if target.state?(target.death_state_id) || 
       ($imported["YEA-BattleEngine"] && target.can_collapse?)
+      target.target = @subject
+      target.perform_collapse_effect 
+    end
   end
   # --------------------------------------------------------------------------
   # New method : Invoke item for TSBS
@@ -4235,7 +4858,8 @@ class Scene_Battle < Scene_Base
     elsif rand < target.item_mrf(subj, item)
       tsbs_invoke_mreflect(target, item)
     else
-      tsbs_apply_item(apply_substitute(target, item), item, subj)
+      tsbs_apply_item(target, item, subj) # doesn't support subtitue for now
+#~       tsbs_apply_item(apply_substitute(target, item), item, subj)
     end
   end
   # --------------------------------------------------------------------------
@@ -4293,7 +4917,13 @@ class Scene_Battle < Scene_Base
   # New method : Apply item for TSBS
   # --------------------------------------------------------------------------
   def tsbs_apply_item(target, item, subj = @subject)
-    target.item_apply(subj, item)
+    if $imported["YEA-LunaticObjects"]
+      lunatic_object_effect(:prepare, item, subj, target)
+      target.item_apply(subj, item)
+      lunatic_object_effect(:during, item, subj, target)
+    else
+      target.item_apply(subj, item)
+    end
     return if (item.is_a?(RPG::Skill) && item.id == target.guard_skill_id)
     check_skill_guard(target, item) unless item.is_a?(RPG::Item)
     @damage.start(target.result)
@@ -4311,6 +4941,7 @@ class Scene_Battle < Scene_Base
   # New method : Check skill guard
   # --------------------------------------------------------------------------
   def check_skill_guard(target, item)
+    return unless @subject
     return if target == @subject
     return if @subject.friends_unit.members.include?(target)
     return if item.ignore_skill_guard?
