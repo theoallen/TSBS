@@ -1,8 +1,15 @@
 # =============================================================================
 # Theolized Sideview Battle System (TSBS)
-# Version : 1.3
-# Contact : www.rpgmakerid.com (or) http://theolized.blogspot.com
-# (This script documentation is written in informal indonesian language)
+# Version : 1.3c
+# Language : Indonesian
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Contact :
+#------------------------------------------------------------------------------
+# *> http://www.rpgmakerid.com
+# *> http://www.rpgmakervxace.net
+# *> http://theolized.blogspot.com
+#==============================================================================
+# Last updated : 2014.08.24
 # -----------------------------------------------------------------------------
 # Requires : Theo - Basic Modules v1.5b
 # >> Basic Functions 
@@ -12,22 +19,6 @@
 # >> Clone Image
 # >> Rotate Image
 # >> Smooth Movement
-# =============================================================================
-# Script info :
-# -----------------------------------------------------------------------------
-# Known Compatibility :
-# >> YEA - Core Engine
-# >> YEA - Battle Engine (RECOMMENDED!)
-# >> MOG Battle HUD
-# >> Sabakan - Ao no Kiseki
-# >> Fomar ATB
-# >> EST - Ring System
-# >> AEA - Charge Turn Battle
-# -----------------------------------------------------------------------------
-# Known Incompatibility :
-# >> YEA - Lunatic Object
-# >> Maybe, most of battle related scripts (ATB, or such...)
-# >> MOG Breathing script
 # =============================================================================
 # Terms of Use :
 # -----------------------------------------------------------------------------
@@ -48,7 +39,7 @@ module TSBS
   atau semacamnya. Kamu bisa menambahkan sebanyak-banyaknya. Dengan syarat
   kamu harus mengikuti format seperti ini
   
-  "key" => [origin, x, y, z, start, end, dur, index, flip?]
+  "key" => [origin, x, y, z, start, end, dur, index, (flip?, sx, sy, dur)]
   
   Penjelasan :
   - "key"  >> Text yang nantinya akan dipakai buat pemanggilan. Setiap sequence
@@ -56,8 +47,8 @@ module TSBS
   - origin >> Letak titik pusat dari icon. Terdapat 5 macam titik pusat. Yaitu
               [0: ditengah] [1: Kiri-atas] [2: Kanan-atas] [3: Kiri-bawah]
               [4: Kanan-bawah]
-  - x      >> Jarak koordinat X dari pusat battler
-  - y      >> Jarak koordinat Y dari pusat battler
+  - x      >> Jarak koordinat X awal dari pusat battler
+  - y      >> Jarak koordinat Y awal dari pusat battler
   - z      >> Apakah icon akan berada pada atas battler? (true/false)
   - start  >> Sudut permulaan icon sebelum dirotasi
   - end    >> Sudut target untuk berakhirnya rotasi
@@ -68,7 +59,12 @@ module TSBS
               Kamu juga bisa mengisinya dengan text/string yang nantinya bisa
               itu akan dievaluasi sebagai script. Contoh:
               "actor.weapons[0].icon_index"
+              
+  OPTIONAL :
   - flip?  >> Apakah iconnya akan diflip? Isi kan true / false (atau kosongin)
+  - sx     >> Perpindahan posisi koordinat X dari posisi X awal
+  - sy     >> Perpindahan posisi koordinat Y dari posisi Y awal
+  - dur    >> Durasi lama perpindahan
   
   Note :
   Untuk kegunaan icon sendiri akan terlihat pada action sequence pada bagian
@@ -137,7 +133,7 @@ module TSBS
   Bagian ketiga : Action Sequences
   
   Disini kalian bisa mendefinisikan gerakan-gerakan battler aktor maupun enemy.
-  Bersiap saja karena instruksinya bakal bejibun. Sejauh ini ada 59 mode yang
+  Bersiap saja karena instruksinya bakal bejibun. Sejauh ini ada 59 command yang
   dapat kalian gunakan dalam mengatur sequence. Listnya sebagai berikut :
   
   Initial release v1.0
@@ -210,6 +206,20 @@ module TSBS
   60) :anim_follow      >> Untuk membuat animasi mengikuti battler
   61) :change_skill     >> Untuk mengganti skill agar lebih mudah digunakan
   
+  Update v1.3b
+  62) :check_collapse   >> Untuk perform collapse pada target
+  63) :reset_counter    >> Untuk mereset damage counter
+  64) :force_hit        >> Untuk membuat skill always hit untuk sementara
+  65) :slow_motion      >> Untuk membuat effect slow motion
+  66) :timestop         >> Untuk menghentikan screen sementara
+  
+  Update v1.3c
+  67) :one_anim         >> Untuk membuat satu animasi untuk area attack
+  68) :proj_scale       >> Untuk menskala damage dari proyektil
+  69) :com_event        >> Untuk memanggil common event saat sequence
+  70) :scr_freeze       >> Untuk membuat screen berhenti diupdate
+  71) :scr_trans        >> Untuk melakukan transisi
+
   ===========================================================================
   *) Membuat action sequence
   ---------------------------------------------------------------------------
@@ -217,9 +227,9 @@ module TSBS
   
   "Action Key" => [
   [loop?, Afterimage?, Flip?], <-- replace dengan true / false (wajib)
-  [:mode, param1, param2], <-- jangan lupa komma!
-  [:mode, param1, param2],
-  [:mode, param1, param2],
+  [:command, param1, param2], <-- jangan lupa komma!
+  [:command, param1, param2],
+  [:command, param1, param2],
   ....
   
   ], <-- komma juga!
@@ -244,12 +254,12 @@ module TSBS
     posisi flip seperti aslinya (untuk actor, tidak diflip. Untuk enemy,
     tergantung gimana kamu settingnya. Apa kamu pake tag <flip> ato ngga)
     
-  > :mode
-    Adalah mode dari list yang udah wa tulis diatas
+  > :command
+    Adalah command dari list yang udah wa tulis diatas
     
   > param1, param2
-    Adalah parameter dari masing-masing mode. Setiap mode mempunyai parameter
-    berbeda. Jadi pastikan kamu baca dengan bener.
+    Adalah parameter dari masing-masing command. Setiap command mempunyai 
+    parameter berbeda. Jadi pastikan kamu baca dengan bener.
     
   ===========================================================================
   1)  :pose   | Mengganti pose battler
@@ -257,7 +267,7 @@ module TSBS
   Format --> [:pose, number, cell, wait, (icon)],
   
   Keterangan :
-  Mode ini adalah untuk mengganti pose battler dari satu cell ke cell lainnya
+  Command ini adalah untuk mengganti pose battler dari satu cell ke cell lainnya
   
   Parameter :
   number  >> Adalah untuk angka dari nama gambar. Seperti Ralph_1, Ralph_2 
@@ -284,7 +294,7 @@ module TSBS
   Format --> [:move, x, y, dur, jump],
   
   Keterangan :
-  Mode ini adalah untuk menggerakkan battler dari asalnya menuju koordinat
+  Command ini adalah untuk menggerakkan battler dari asalnya menuju koordinat
   tertentu
   
   Parameter :
@@ -302,7 +312,7 @@ module TSBS
   Format --> [:slide, x, y, dur, jump],
   
   Keterangan :
-  Mode ini adalah untuk menggeser battler dari asalnya beberapa pixel sesuai
+  Command ini adalah untuk menggeser battler dari asalnya beberapa pixel sesuai
   dengan parameter yang akan kamu masukkan
   
   Parameter :
@@ -325,7 +335,7 @@ module TSBS
   Format --> [:goto_oripost, dur, jump],
   
   Keterangan :
-  Mode ini adalah untuk mengembalikan battler kepada posisi semula
+  Command ini adalah untuk mengembalikan battler kepada posisi semula
   
   Parameter
   dur   >> Durasi perjalanan dalam frame. Makin kecil makin cepet
@@ -340,7 +350,7 @@ module TSBS
   Format --> [:move_to_target, x, y, dur, jump],
   
   Keterangan :
-  Mode ini adalah untuk menggerakkan battler kepada target yang akan dituju
+  Command ini adalah untuk menggerakkan battler kepada target yang akan dituju
   
   Parameter
   x     >> Perbedaan posisi x dari target
@@ -455,7 +465,7 @@ module TSBS
   Format --> [:visible, true/false],
   
   Keterangan :
-  Parameter mode visible hanya ada satu. Dan itu cukup ditulis dengan true
+  Parameter command visible hanya ada satu. Dan itu cukup ditulis dengan true
   atau false. Jika true, maka battler akan terlihat. False, battler akan
   hilang
   
@@ -469,7 +479,7 @@ module TSBS
   Format --> [:afterimage, true/false],
   
   Keterangan :
-  Parameter mode afterimage seperti halnya visible. Hanya berlaku true dan
+  Parameter command afterimage seperti halnya visible. Hanya berlaku true dan
   false
   
   Contoh :
@@ -500,7 +510,7 @@ module TSBS
   Format --> [:action, "key"],
   
   Keterangan :
-  Mode action adalah untuk menggabung-gabungkan action sequence. Jadi kamu
+  Command :action adalah untuk menggabung-gabungkan action sequence. Jadi kamu
   bisa saja membuat sebuah template dan kamu hanya tinggal menggabung antara
   satu dengan yang lain.
   
@@ -515,7 +525,7 @@ module TSBS
   Format --> [:projectile, anim_id, dur, jump, (icon), (angle_speed)],
   
   Keterangan :
-  Sama seperti mode target damage. Namun dalam bentuk proyektil. Saat
+  Sama seperti command target damage. Namun dalam bentuk proyektil. Saat
   proyektil sampai ke pada target, maka target akan terkena damage.
   
   Parameternya antara lain :
@@ -538,8 +548,8 @@ module TSBS
   Format --> [:proj_setup, start, end],
   
   Keterangan :
-  Mode ini untuk menyetting proyektil. Disarankan dipanggil sebelum :projectile
-  untuk menyetting proyektil yang akan dilempar
+  Command ini untuk menyetting proyektil. Disarankan dipanggil sebelum 
+  :projectile untuk menyetting proyektil yang akan dilempar
   
   Start >> asal proyektil dari user
   End   >> tujuan proyektil (target)
@@ -607,8 +617,8 @@ module TSBS
   Format --> [:icon, "key"],
   
   Keterangan :
-  Sama seperti show icon pada mode :pose. Hanya saja ini independen tidak
-  tergantung pada mode :pose
+  Sama seperti show icon pada command :pose. Hanya saja ini independen tidak
+  tergantung pada command :pose
   
   Contoh :
   [:icon, "Swing"],
@@ -619,7 +629,7 @@ module TSBS
   Format --> [:sound, name, vol, pitch],
   
   Keterangan :
-  Mode ini adalah untuk membunyikan sound effect
+  Command ini adalah untuk membunyikan sound effect
   
   Parameter :
   name  >> Nama SE yang ada pada folder Audio/SE
@@ -685,7 +695,7 @@ module TSBS
   player menekan tombol pada waktu tertentu, maka player akan mendapat hadiah.
   Seperti damage skill akan meningkat dua kali.
   
-  Mode ini harus diikuti dengan [:if] dimana parameternya adalah
+  command ini harus diikuti dengan [:if] dimana parameternya adalah
   [:if, "@timed_hit"]
   
   Parameter :
@@ -710,8 +720,8 @@ module TSBS
   Format --> [:screen, submode, param1, param1],
   
   Keterangan :
-  Mode ini adalah untuk memodifikasi screen. Terdapat submode pada mode screen
-  ini. Yaitu antara lain :
+  Command ini adalah untuk memodifikasi screen. Terdapat submode pada command 
+  screen ini. Yaitu antara lain :
   
   :tone       >> Seperti tint screen pada event
   :shake      >> Seperti shake screen pada event
@@ -760,7 +770,7 @@ module TSBS
   Format --> [:add_state, state_id, (chance), (ignore_rate?)],
   
   Keterangan :
-  Seperti namanya. Mode ini adalah untuk aplikasi state berdasar chance pada
+  Seperti namanya. command ini adalah untuk aplikasi state berdasar chance pada
   target.
   
   Parameter :
@@ -781,7 +791,7 @@ module TSBS
   Format --> [:rem_state, state_id, (chance)],
   
   Keterangan :
-  Seperti namanya. Mode ini adalah untuk menghapus state berdasar chance pada
+  Seperti namanya. command ini adalah untuk menghapus state berdasar chance pada
   target.
   
   Parameter :
@@ -799,7 +809,7 @@ module TSBS
   Format --> [:change_target, option],
   
   Keterangan :
-  Mode ini adalah untuk mengganti target di tengah-tengah dijalankannya
+  command ini adalah untuk mengganti target di tengah-tengah dijalankannya
   action sequence. Terdapat sembilan mode target. Antara lain :
   
   0   >> Kembali ke target semula (target dari database)
@@ -845,8 +855,8 @@ module TSBS
   Format --> [:target_move, x, y, dur, jump],
   
   Keterangan :
-  Mode ini adalah untuk menggerakkan target ke koordinat tertentu. Sama
-  seperti mode move hanya saja yang jadi subject adalah target saat itu
+  Command ini adalah untuk menggerakkan target ke koordinat tertentu. Sama
+  seperti command move hanya saja yang jadi subject adalah target saat itu
   
   Parameter :
   x     >> Koordinat x tujuan
@@ -863,7 +873,7 @@ module TSBS
   Format --> [:target_side, x, y, dur, jump],
   
   Keterangan :
-  Mode ini adalah untuk menggeser target dari pusatnya. Sama seperti mode 
+  Command ini adalah untuk menggeser target dari pusatnya. Sama seperti command 
   slide hanya saja yang jadi subject adalah target saat itu
   
   Parameter :
@@ -914,7 +924,7 @@ module TSBS
   Format --> [:focus, dur, (color)],
   
   Keterangan :
-  Mode ini adalah untuk menghilangkan battle yang bukan target dan user. Jadi
+  Command ini adalah untuk menghilangkan battle yang bukan target dan user. Jadi
   action terfokus pada subject dan targetnya saja.
   
   Parameter :
@@ -931,7 +941,7 @@ module TSBS
   Format --> [:unfocus, dur],
   
   Keterangan :
-  Sama seperti focus. Namun mode ini adalah untuk menampilkan kembali battler
+  Sama seperti focus. Namun command ini adalah untuk menampilkan kembali battler
   yang disembunyikan oleh focus. Wajib untuk dipanggil setelah focus dipanggil
   
   Parameter :
@@ -1056,10 +1066,10 @@ module TSBS
   ===========================================================================
   41) :plane_add | Untuk nambahin gambar looping
   ---------------------------------------------------------------------------
-  Format --> [:plane_add, file, speed_x, speed_y, (above), (dur)]
+  Format --> [:plane_add, file, speed_x, speed_y, (above), (dur), (opac)]
   
   Keterangan :
-  Mode ini untuk menambahkan gambar looping seperti efek kabut, parallax
+  Command ini untuk menambahkan gambar looping seperti efek kabut, parallax
   atau semacamnya.
   
   Parameter :
@@ -1069,6 +1079,7 @@ module TSBS
   above   >> Diatas battler? Tulis dengan true/false
   dur     >> Durasi munculnya gambar dari opacity 0 sampai 255 dalam hitungan
              frame. Bisa diabaikan, dan defaultnya adalah 2
+  opac    >> Opacity gambar looping. Defaultnya adalah 255
   
   Contoh :
   [:plane_add,"cutin-bg",35,0,false,15],
@@ -1082,7 +1093,7 @@ module TSBS
   Format --> [:plane_del, durasi]
   
   Keterangan :
-  Mode ini untuk menghapus gambar looping yang telah dipanggil oleh mode 
+  Command ini untuk menghapus gambar looping yang telah dipanggil oleh command 
   :plane_add dengan durasi yang dihitung dalam hitungan frame.
   
   Contoh :
@@ -1095,7 +1106,7 @@ module TSBS
   
   Keterangan :
   Flag untuk menandai proyektil yang akan dilempar akan kembali lagi kepada
-  user / caster. Gunakan tepat sebelum mode sequence :projectile
+  user / caster. Gunakan tepat sebelum command sequence :projectile
   
   Contoh :
   [:boomerang],
@@ -1108,7 +1119,7 @@ module TSBS
   
   Keterangan :
   Flag untuk menandai proyektil yang akan dilempar ditambahi efek afterimage.
-  Gunakan tepat sebelum sequence mode :proyektil
+  Gunakan tepat sebelum sequence command :proyektil
   
   Contoh :
   [:proj_afimage],
@@ -1181,7 +1192,7 @@ module TSBS
   Format --> [:sm_move, x, y, dur, (rev)]
   
   Keterangan :
-  Sama seperti mode :move. Namun yang ini disertai dengan percepatan. Jadi
+  Sama seperti command :move. Namun yang ini disertai dengan percepatan. Jadi
   terlihat lebih smooth.
   
   Parameter :
@@ -1202,7 +1213,7 @@ module TSBS
   Format --> [:sm_slide, x, y, dur, (rev)]
   
   Keterangan :
-  Sama seperti mode :slide. Namun yang ini disertai dengan percepatan. Jadi
+  Sama seperti command :slide. Namun yang ini disertai dengan percepatan. Jadi
   terlihat lebih smooth.
   
   Parameter :
@@ -1223,8 +1234,8 @@ module TSBS
   Format --> [:sm_target, x, y, dur, (rev)]
   
   Keterangan :
-  Sama seperti mode :move_to_target. Namun yang ini disertai dengan percepatan. 
-  Jadi terlihat lebih smooth.
+  Sama seperti command :move_to_target. Namun yang ini disertai dengan 
+  percepatan. Jadi terlihat lebih smooth.
   
   Parameter :
   x   >> Jarak X dari koordinat target
@@ -1253,7 +1264,7 @@ module TSBS
   Format --> [:sm_return, dur, (rev)]
   
   Keterangan :
-  Sama seperti mode :goto_oripost. Namun yang ini disertai dengan percepatan. 
+  Sama seperti command :goto_oripost. Namun yang ini disertai dengan percepatan. 
   Jadi terlihat lebih smooth.
   
   Parameter :
@@ -1285,6 +1296,19 @@ module TSBS
   
   Contoh :
   [:loop, 3, "CastPose"],
+  
+  Alternatif :
+  Jika kamu tidak mau membuat action sequence baru kamu bisa langsung
+  definisikan di dalam command loop.
+  
+  Contoh :
+  [:loop, 3, 
+    [
+    [:show_anim],
+    [:target_damage],
+    [:wait, 25],
+    ]
+  ],
   
   ===========================================================================  
   54) :while | Untuk looping selama kondisi benar
@@ -1473,6 +1497,184 @@ module TSBS
   Kamu bisa menskala damage output yang dikeluarkan dari skill id 13 yang tidak
   bisa dilakukan oleh [:target_damage] biasa.
   
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                              UPDATE VERSION 1.3b
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+  
+  ===========================================================================  
+  62) :check_collapse | Untuk perform collapse pada target
+  ---------------------------------------------------------------------------
+  Format --> [:check_collapse]
+  
+  Keterangan :
+  Digunakan untuk perform collapse pada target jika target mencapai HP  = 0
+  Dengan kata lain, collapse effect akan dilakukan pada saat action sequence
+  berjalan. Collapse tidak akan dijalankan jika target masih hidup
+  
+  Contoh :
+  [:target_damage],
+  [:check_collapse],
+  
+  ===========================================================================  
+  63) :reset_counter | Untuk mereset damage counter
+  ---------------------------------------------------------------------------
+  Format --> [:reset_counter]
+  
+  Keterangan :
+  Digunakan untuk mereset damage counter. Semisal pada damage counter
+  menunjukkan total hit : 5, dengan kamu memanggil command ini, maka counter
+  akan kembali menjadi 1
+  
+  Contoh :
+  [:reset_counter],
+  
+  ===========================================================================  
+  64) :force_hit | Untuk membuat skill always hit untuk sementara
+  ---------------------------------------------------------------------------
+  Format --> [:force_hit]
+  
+  Keterangan :
+  Digunakan untuk membuat serangan [:target_damage] berikutnya menjadi always 
+  hit. Panggil sebelum command [:target_damage] dilakukan.
+  
+  Contoh :
+  [:force_hit],
+  [:show_anim],
+  [:target_damage],
+  
+  Catatan penting:
+  Ada kemungkinan penggunaan command ini bakal gw ubah di versi berikutnya.
+  
+  ===========================================================================
+  65) :slow_motion | Untuk membuat effect slow motion
+  ---------------------------------------------------------------------------
+  Format --> [:slow_motion, frame, rate]
+  
+  Keterangan :
+  Command ini digunakan untuk membuat effect slow motion dimana pergerakan
+  action sequence akan terlihat diperlambat
+  
+  Parameter :
+  Frame >> Dalam berapa frame kedepan effect slow motion akan berjalan?
+  Rate  >> Rate perlambatan. Default FPS adalah 60. Jika kamu memasukkan rate
+           dengan nilai 2, maka FPS akan turun menjadi 30. Jika kamu memasukkan
+           nilai lebih tinggi, FPS akan turun menjadi 20, 15, 10 dst ...
+  
+  Contoh : 
+  [:slow_motion, 30, 2],
+  
+  ===========================================================================
+  66) :timestop | Untuk menghentikan screen sementara
+  ---------------------------------------------------------------------------
+  Format --> [:timestop, frame]
+  
+  Keterangan :
+  Command ini digunakan untuk menghentikan screen selama waktu durasi sekian
+  frame.
+  
+  Contoh :
+  [:timestop, 60],
+  
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                              UPDATE VERSION 1.3c
+  +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  ===========================================================================  
+  67) :one_anim | Untuk membuat satu animasi untuk area attack
+  ---------------------------------------------------------------------------
+  Format --> [:one_anim],
+  
+  Keterangan :
+  Adalah tanda untuk membuat animasi berikutnya hanya ditampilkan sekali jika
+  target saat itu adalah target area. Animasi akan ditampilkan di tengah-tengah
+  dari semua target. Masukkan command ini sebelum [:show_anim]. Dapat dipakai
+  pada proyektil juga
+  
+  Contoh :
+  [:one_anim],
+  [:show_anim],
+  
+  ===========================================================================  
+  68) :proj_scale | Untuk menskala damage dari proyektil
+  ---------------------------------------------------------------------------
+  Format --> [:proj_scale, (scale / formula)],
+  
+  Keterangan :
+  Command ini untuk menyekala damage dari serangan proyektil. Tidak sama
+  seperti command flag yang lain yang hanya berefek sekali. Command ini akan
+  berefek seterusnya sampai kamu mengembalikannya lagi
+  
+  Kamu bisa mengisinya dengan skala seperti [:proj_scale, 1.0] atau damage
+  formula seperti [proj_scale, "a.atk * 4 - b.def * 2"],
+  
+  Contoh :
+  [:projectile, ...], # <-- Tidak akan kena efek
+  [:proj_scale, 0.5], # <-- Skala damage 50%
+  [:projectile, ...], # <-- Terkena efek skala damage
+  [:projectile, ...], # <-- Terkena efek skala damage
+  [:proj_scale, 1.0], # <-- Dikembalikan ke semula
+  
+  ===========================================================================    
+  69) :com_event | Untuk memanggil common event saat sequence
+  ---------------------------------------------------------------------------
+  Format --> [:com_event, id],
+  
+  Keterangan :
+  Command ini digunakan untuk memanggil common event saat action sequence.
+  Common event akan dijalankan bersamaan dengan action sequence.
+  
+  Contoh :
+  [:com_event, 1], # <-- Akan menjalankan common event 1
+  
+  ~~~~~~~~~~~~~~~~~~~
+  Untuk mencegah action sequence dilanjutkan, kamu bisa menggunakan command
+  [:while] dan "event_running?" untuk mengeceknya
+  
+  Contoh :
+  [:com_event, 1],
+  [:while, "event_running?", "K-Idle"],
+  
+  Saat common event dijalankan, sprite akan melakukan "K-Idle" secara berulang
+  kali sampai common event selesai
+  
+  ===========================================================================  
+  70) :scr_freeze | Untuk membuat screen berhenti diupdate
+  ---------------------------------------------------------------------------
+  Format --> [:scr_freeze],
+  
+  Keterangan :
+  Untuk mengehentikan screen dari update. Tidak sama dengan [:freeze]. Yang satu
+  ini benar-benar menghentikan screen. Harus dipanggil sebelum transisi
+  
+  Example :
+  [:scr_freeze], # <-- Ingat. Tidak ada parameter seperti true / false
+  
+  ===========================================================================  
+  71) :scr_trans | Untuk melakukan transisi
+  ---------------------------------------------------------------------------
+  Format --> [:scr_trans, "file", dur, (vague)],
+  
+  Keterangan :
+  Digunakan untuk transisi setelah screen dihentikan. [:scr_freeze] harus
+  dipanggil sebelum menggunakan command ini
+  
+  Parameter :
+  "file" >> Nama file gambar transisi yang ada di Graphics/pictures
+  dur    >> Durasi transisi dalam frame (60 frame = 1 detik)
+  vague  >> Nilai ambiguitas. Semakin besar nilai, semakin besar ambiguitasnya.
+            Dapat diabaikan. Nilai defaultnya adalah 40
+  
+  Contoh :
+  [:scr_freeze],
+  [:plane_add, "magic_square01", 0, 0, false, 1],
+  [:focus, 1, Color.new(0,0,0,0)],
+  [:scr_trans, "Circle", 60],
+  
+  [:scr_freeze],
+  [:plane_add, "magic_square01", 0, 0, false, 1],
+  [:focus, 1, Color.new(0,0,0,0)],
+  [:scr_trans, "Circle", 60, 120],
+
 =end
 # =============================================================================
   AnimLoop = { # <-- Jangan disentuh!
