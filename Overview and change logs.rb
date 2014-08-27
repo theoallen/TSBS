@@ -1,7 +1,27 @@
 # =============================================================================
 # Theolized Sideview Battle System
-# Current Version 1.3
+# Current Version 1.3c
+# =============================================================================
+# Script info :
 # -----------------------------------------------------------------------------
+# Known Compatibility :
+# >> YEA - Core Engine
+# >> YEA - Battle Engine (Recommended!)
+# >> YEA - Lunatic Object
+# >> YEA - Lunatic Target
+# >> YEA - Target Manager
+# >> YEA - Area of Effect
+# >> MOG Battle HUD
+# >> MOG Active Time Battle
+# >> Sabakan - Ao no Kiseki
+# >> Fomar ATB
+# >> EST - Ring System
+# >> Szyu - Timed States (With a note : http://goo.gl/5lwhN5)
+# -----------------------------------------------------------------------------
+# Known Incompatibility :
+# >> MOG Breathing script
+# >> Luna Engine (It's paid script. Ask them to make compatibility)
+# =============================================================================
 =begin
 
   TSBS - Overview
@@ -37,22 +57,32 @@
   Planned added features :
   >> Shot projectile from specific coordinate
   >> Shot projectile to specific coordinate
-  >> Extended timed-hit features
+  >> Projectile coordinat adjustment
+  >> Extended timed-hit features (dodge hit, or something like that)
+  >> Combo hit
   >> Grid Battle System?
+  >> Subtitue / Cover support
+  >> Class change battler graphics
+  >> Folder for battler for easier organize
+  >> Clone battler for action sequence animation
+  >> Camera effect?
   
   Special Thanks :
+  >> RPGMakerID
   >> TDS for basic movement module in RMRK
   >> Mithran for Graphical global object ref
   >> Eremidia: Dungeon! and Tankentai VX for basic inspirations
-  >> Ryuz Andhika (for the first person who used my battle system)
-  >> Skourpy (English Translation)
-  >> CielScarlet (English Translation)
-  >> Komozaku Kazeko (Bug reporter)
-  >> Nethernal (Bug reporter)
+  >> Estriole
+  >> Ryuz Andhika 
+  >> Skourpy 
+  >> CielScarlet 
+  >> Komozaku Kazeko 
+  >> Nethernal 
   
   ----------------------------------------------------------------------------
-  Overwritten Methods (Total: 17)
+  Overwritten Methods (Total: 18)
   *) Sound            - play_evasion
+                      - play_enemy_collapse
   *) BattleManager    - process_escape
   *) Game_Battler     - item_effect_remove_state
   *) Game_Actor       - use_sprite?
@@ -115,7 +145,8 @@
                         - terminate
                         
   ----------------------------------------------------------------------------
-  New Classes (Total: 10)
+  New Modules and Classes (Total: 13)
+  *) Game_BattleEvent
   *) Sprite_Screen < Sprite (Basic Module - Basic Function)
   *) Sprite_AnimGuard < Sprite_Base
   *) Sprite_AnimState < Sprite_Base
@@ -126,11 +157,59 @@
   *) Battle_Plane < Plane
   *) DamageResult < Sprite
   *) DamageResults
+  *) TSBS
+  *) TSBS_AnimRewrite
 
 =end
 # -----------------------------------------------------------------------------
 # Change Logs:
 # -----------------------------------------------------------------------------
+# 2014.08.27 - Added shadow y formula
+#            - Added screen_x and screen_y formula for Battler Icon
+# 2014.08.25 - Fixed shadow glitch in the beginning of battle start
+#            - Change shadow Z value to 3
+# 2014.08.24 - Added one animation display for projectile area attack
+# 2014.08.22 - Added common event call during action sequence
+# 2014.08.21 - Change script header. Moved $imported from config 1 to 
+#              implementation part
+# 2014.08.20 - Compatibility with YEA Lunatic Object (at least, it should)
+#            - Divide show_action_sequence method into parts for future use
+#            - Fixed :anim_top error
+#            - Added one animation display for area attack
+#            - Added projectile damage rescale
+# 2014.08.19 - Add default value for @ori_x and @ori_y to prevent error when
+#              adding non battle members
+# 2014.08.18 - Fixed bug where battler icon didn't follow battler opacity
+# 2014.07.20 - Added [:timestop]
+# 2014.07.19 - Prevent counterattack being counterattacked (lolwhut?)
+#            - Added slow motion effect
+# 2014.07.16 - Bugfix. Crashes when collapse sequence trying to damage opposite
+#              unit in slip damage death
+# 2014.07.15 - Added max opacity to [:plane_add,] command
+# 2014.07.14 - Added <no shadow> tag for both actor and enemy
+#            - Added custom collapse sound for enemy
+#            - Added force always hit command sequence
+#            - Bugfix. Y coordinate for [:move_to_target] doesn't work
+# 2014.07.13 - Added icon movement (to support spear animation)
+#            - Added default target (the attacker) for collapse sequence. In
+#              case if you want to damage the attacker using collapse sequence
+#            - Added function to check target range (for future use)
+#            - Added function to reset damage counter
+# 2014.07.12 - Bugfix. Fatal error in collapse sequence when you want to damage 
+#              the opposite units using [:target_damage]
+#            - Change actor fiber reference ID
+#            - Correct animation state opacity rate reference
+#            - Correct animation guard opacity rate reference
+# 2014.07.11 - Victory sequence now is just optional
+# 2014.07.10 - Reverted back "raise" method to "msgbox"
+#            - Added icon error recognition
+#            - Added sequence initial setup error recognition
+# 2014.07.09 - Bugfix, move to target for area attack ignores inputted 
+#              parameters
+#            - Disable subtitue / cover function. Since it's not functional
+#              in TSBS at now
+#            - Added animation behind for state animation
+#            - Added ability to define sequence directly inside [:loop]
 # 2014.06.29 - Bugfix, random repel target the dead battler
 #            - Revamp error handling for [:action]
 # 2014.06.28 - Added built-in change basic skill (attack and defend) for actor,
@@ -168,8 +247,8 @@
 #            - Bugfix, show projectile throws error when not followed by YEA
 #              Battle Engine
 # 2014.05.14 - Prevent :counter battle phase of being replaced by :hurt
-# 2014.05.05 - Added [:loop] sequence mode
-#            - Added [:while] sequence mode
+# 2014.05.05 - Added [:loop] sequence command
+#            - Added [:while] sequence command
 #            - Change how [:if] sequence is handled
 # 2014.05.01 - Added smooth movement
 #            - Glitch fix on intro sequence where sprite is not updated on
@@ -266,14 +345,14 @@
 # 2013.12.05 - Some skill now can disable the return move using <no return>
 #            - Area skill now works
 #            - States now has its own tone
-# 2013.12.04 - Slide mode now has inverted coordinate if flipped
+# 2013.12.04 - Slide command now has inverted coordinate if flipped
 #            - Now support return movement after performed action
 #            - Now support prepare / cast sequence before action
 #            - Disable dead pose (at least, for now)
 #            - Fixed flipped animation in :show_anim
 # 2013.12.03 - Show animation for normal attack
 #            - Added evade sequence
-#            - Added [:action] mode to call pre-defined action sequence
+#            - Added [:action] command to call pre-defined action sequence
 # 2013.11.28 - Finished version 0.5 (Released at : 28 November 2013)
 #            - Support action sequences
 #            - Bugfix : Collapse effect wont show if not followed by ABE
