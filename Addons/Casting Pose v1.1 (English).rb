@@ -1,6 +1,6 @@
 #==============================================================================
 # TSBS Addon - Casting Pose
-# Version : 1.0
+# Version : 1.1
 # Language : English
 # Requires : Theolized Sideview Battle System
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -14,6 +14,9 @@
 #==============================================================================
 # Change Logs:
 # -----------------------------------------------------------------------------
+# 2013.08.26 - Fixed bug where random target from default script doesn't
+#              trigger casting pose
+#            - Add new :cast battle phase
 # 2013.08.21 - Finished script
 #==============================================================================
 =begin
@@ -32,6 +35,22 @@
   To setup casting pose, simply put this following tag in skill / item notebox
   
   \castpose : Action_Key
+  
+  Side note.
+  If you want to loop the casting pose at a certain point, i.e you don't want
+  to loop the casting pose from the beginning, you could use this kind of
+  sequence
+  
+  "CastingPose" => [
+  [],
+  [:pose...],
+  [:pose...],
+  [:pose...],
+  [:while, "true", "CastingLoop"],
+  ],
+  
+  So, basically the [:while, "true"] command do an invinite will loop. See
+  TSBS config 2 for [:while] command information.
   
   ===================
   || Terms of use ||
@@ -81,15 +100,6 @@ class Game_Battler
     @cast_pose = ""
   end
   
-  def idle
-    return data_battler.dead_key if dead? && actor?
-    return @cast_pose if !@cast_pose.empty?
-    return state_sequence if state_sequence
-    return data_battler.critical_key if critical? && 
-      !data_battler.critical_key.empty?
-    return data_battler.idle_key
-  end
-  
   def action_set?
     !@actions.empty? && @actions[0].target_index > -1 && 
       !@actions[0].item.cast_pose.empty?
@@ -98,8 +108,20 @@ class Game_Battler
   def cast_pose=(key)
     if @cast_pose != key
       @cast_pose = key
-      self.battle_phase = :idle
+      self.battle_phase = (key.empty? ? :idle : :cast)
     end
+  end
+  
+  alias tsbs_castpose_phase_sequence phase_sequence
+  def phase_sequence
+    castpose = {:cast => method(:cast_pose)}
+    return tsbs_castpose_phase_sequence.merge(castpose)
+  end
+  
+  alias tsbs_castpose_force_change_bphase force_change_battle_phase
+  def force_change_battle_phase(phase)
+    phase = :cast if phase == :idle && !@cast_pose.empty?
+    tsbs_castpose_force_change_bphase(phase)
   end
   
 end
@@ -108,28 +130,49 @@ class Scene_Battle
   
   alias tsbs_castpose_command_attack command_attack
   def command_attack
-    tsbs_castpose_command_attack
     @used_item = $data_skills[BattleManager.actor.attack_skill_id]
+    tsbs_castpose_command_attack
+  end
+  
+  alias tsbs_castpose_command_guard command_guard
+  def command_guard
+    @used_item = $data_skills[BattleManager.actor.guard_skill_id]
+    set_casting_pose
+    tsbs_castpose_command_guard
   end
   
   alias tsbs_castpose_on_skill_ok on_skill_ok
   def on_skill_ok
+    @used_item  = @skill_window.item
+    set_casting_pose unless @used_item.need_selection? || 
+      $imported["YEA-BattleEngine"]
     tsbs_castpose_on_skill_ok
-    @used_item = @skill
   end
   
   alias tsbs_castpose_on_item_ok on_item_ok
   def on_item_ok
+    @used_item = @item_window.item
+    set_casting_pose unless @used_item.need_selection? || 
+      $imported["YEA-BattleEngine"]
     tsbs_castpose_on_item_ok
-    @used_item = @item
   end
   
   alias tsbs_castpose_on_enemy_ok on_enemy_ok
   def on_enemy_ok
+    set_casting_pose
+    tsbs_castpose_on_enemy_ok
+  end
+  
+  alias tsbs_castpose_on_actor_ok on_actor_ok
+  def on_actor_ok
+    set_casting_pose
+    tsbs_castpose_on_actor_ok
+  end
+  
+  def set_casting_pose
     actor = BattleManager.actor
     actor.cast_pose = @used_item.cast_pose if @used_item && 
       actor.cast_pose.empty?
-    tsbs_castpose_on_enemy_ok
   end
   
   alias tsbs_castpose_show_action_sequences show_action_sequences
