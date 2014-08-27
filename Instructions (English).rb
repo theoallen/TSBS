@@ -1,8 +1,15 @@
 # =============================================================================
 # Theolized Sideview Battle System (TSBS)
-# Version : 1.3
-# Contact : www.rpgmakerid.com (or) http://theolized.blogspot.com
-# (English Documentation)
+# Version : 1.3c
+# Language : English
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Contact :
+#------------------------------------------------------------------------------
+# *> http://www.rpgmakerid.com
+# *> http://www.rpgmakervxace.net
+# *> http://theolized.blogspot.com
+#==============================================================================
+# Last updated : 2014.08.24
 # -----------------------------------------------------------------------------
 # Requires : Theo - Basic Modules v1.5b
 # >> Basic Functions 
@@ -12,21 +19,6 @@
 # >> Clone Image
 # >> Rotate Image
 # >> Smooth Movement
-# =============================================================================
-# Script info :
-# -----------------------------------------------------------------------------
-# Known Compatibility :
-# >> YEA - Core Engine
-# >> YEA - Battle Engine (RECOMMENDED!)
-# >> MOG Battle HUD
-# >> Sabakan - Ao no Kiseki
-# >> Fomar ATB
-# >> EST - Ring System
-# -----------------------------------------------------------------------------
-# Known Incompatibility :
-# >> YEA - Lunatic Object
-# >> Maybe, most of battle related scripts (ATB, or such...)
-# >> MOG Breathing script
 # =============================================================================
 # Terms of Use :
 # -----------------------------------------------------------------------------
@@ -289,6 +281,15 @@
   you want to make magic reflection target to be randomized. You can use this
   tag in skill/item notebox
   <random reflect>
+  
+  --------------------------------------------------------------------------
+  ONE ANIMATION DISPLAY :
+  
+  By default, when a battler perform area skill and play the animation, it will
+  be played in each target. This tag will prevent it to happen. Instead, the
+  animation will be played once in the middle of the targets. Use this tag
+  in skill / item notebox
+  <one animation>
   
   ----------------------------------------------------------------------------
   These are some special tags for skill
