@@ -9,7 +9,7 @@
 # *> http://www.rpgmakervxace.net
 # *> http://theolized.blogspot.com
 # =============================================================================
-# Last updated : 2014.08.27
+# Last updated : 2014.08.29
 # -----------------------------------------------------------------------------
 # Requires : Theo - Basic Modules v1.5b
 # >> Basic Functions 
