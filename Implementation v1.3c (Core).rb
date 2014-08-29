@@ -1602,7 +1602,7 @@ class Game_Battler < Game_BattlerBase
   # New method : Setup animation [:show_anim,]
   # --------------------------------------------------------------------------
   def setup_anim
-    if $game_temp.one_animation_flag || (@acts[1].nil? && 
+    if $game_temp.one_animation_flag || (@acts[1].nil? && item_in_use &&
         item_in_use.one_animation)
       handler = get_spriteset.one_anim
       size = target_array.size
