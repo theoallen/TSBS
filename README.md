@@ -15,11 +15,11 @@ TSBS are also free for commercial projects. However, I expect a free copy of you
 How to install :
 ====
 Put the script in these order in your RPG Maker VX Ace script editor. Below material but above main. If you plan to use YEA Battle Engine. Put these below it.
-- [Basic Modules v1.5b](https://github.com/theoallen/TSBS/blob/master/Basic%20Modules%20v1.5b.rb)
+- [Basic Modules v1.5c](https://github.com/theoallen/TSBS/blob/master/Basic%20Modules%20v1.5c.rb)
 - [Instructions (English)](https://github.com/theoallen/TSBS/blob/master/Instructions%20(English).rb) OR [Instruction (Indonesian)](https://github.com/theoallen/TSBS/blob/master/Instructions%20(Indonesian).rb)
 - [Config 1 - General (English)](https://github.com/theoallen/TSBS/blob/master/Config%201%20-%20General%20(English).rb) OR [Config 1 - General (Indonesian)](https://github.com/theoallen/TSBS/blob/master/Config%201%20-%20General%20(Indonesian).rb)
 - [Config 2 - Sequence (English)](https://github.com/theoallen/TSBS/blob/master/Config%202%20-%20Sequence%20(English).rb) OR [Config 2 - Sequence (Indonesian)](https://github.com/theoallen/TSBS/blob/master/Config%202%20-%20Sequence%20(Indonesian).rb)
-- [Implementation v1.3](https://github.com/theoallen/TSBS/blob/master/Implementation%20v1.3%20(Core).rb)
+- [Implementation](https://github.com/theoallen/TSBS/blob/master/Implementation%20(Core).rb)
 - (Optional) Put the [Overview and changelog](https://github.com/theoallen/TSBS/blob/master/Overview%20and%20change%20logs.rb) as well if you want. It just tell the overview of TSBS
 
 The order would be like this
