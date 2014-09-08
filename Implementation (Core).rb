@@ -9,7 +9,7 @@
 # *> http://www.rpgmakervxace.net
 # *> http://theolized.blogspot.com
 # =============================================================================
-# Last updated : 2014.08.29
+# Last updated : 2014.09.08
 # -----------------------------------------------------------------------------
 # Requires : Theo - Basic Modules v1.5b
 # >> Basic Functions 
@@ -2948,7 +2948,7 @@ class Game_Enemy < Game_Battler
   alias tsbs_enemy_init initialize
   def initialize(index, enemy_id)
     tsbs_enemy_init(index, enemy_id)
-    @screen_z = $game_troop.troop.members[index].y
+    @screen_z = ($game_troop.troop.members[index].y rescue 0)
     @flip = default_flip
   end
   # --------------------------------------------------------------------------
