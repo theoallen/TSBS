@@ -2,7 +2,8 @@
 # TSBS v1.4 Bugfixes
 #-------------------------------------------------------------------------------
 # Change Logs :
-# 2014.12.25
+# 2015.01.01 - Added skill steal compatibility
+# 2014.12.25 - Release date
 #
 #-------------------------------------------------------------------------------
 # Known issues :
@@ -32,9 +33,11 @@
 #
 # - Incompatibility with YEA Active Chain Skill (FIXED!)
 #
-# - Incompatibility with YEA Skill Steal (On the way!)
+# - Incompatibility with YEA Skill Steal (FIXED!)
 #
 # - Incompatibility with AEA Charge turn battle(?)
+#
+# - Incompatibility with YEA Party Manager + Addon 
 #-------------------------------------------------------------------------------
 # To use this patch, simply put this script below implementation
 #===============================================================================
@@ -196,4 +199,45 @@ class Scene_Battle
       wait(tsbs_wait_dur)
     end
   end
+  #-----------------------------------------
+  # Skill Steal patch
+  #-----------------------------------------
+  if $imported["YEA-SkillSteal"]
+  alias tsbs_skill_steal_apply_item tsbs_apply_item
+  def tsbs_apply_item(target, item, subj = @subject)
+    tsbs_skill_steal_apply_item(target, item, subj)
+    tsbs_skill_steal(target, item, subj)
+  end
+  
+  def tsbs_skill_steal(target, item, subj)
+    return unless item.skill_steal
+    return if target.actor?
+    return unless subj.actor?
+    for skill in target.stealable_skills
+      next if subj.skill_learn?(skill)
+      @subject.learn_skill(skill.id)
+      string = YEA::SKILL_STEAL::MSG_SKILL_STEAL
+      skill_text = sprintf("\\i[%d]%s", skill.icon_index, skill.name)
+      text = sprintf(string, @subject.name, skill_text, target.name)
+      @stolen_skills << text
+    end
+  end
+  
+  alias tsbs_skill_steal_action_init tsbs_action_init
+  def tsbs_action_init(targets, item, subj)
+    tsbs_skill_steal_action_init(targets, item, subj)
+    @stolen_skills = []
+  end
+  
+  alias tsbs_skill_steal_action_end tsbs_action_end
+  def tsbs_action_end(targets, item, subj)
+    tsbs_skill_steal_action_end(targets, item, subj)
+    @stolen_skills.each do |text_skill|
+      @log_window.add_text(text_skill)
+      YEA::SKILL_STEAL::MSG_DURATION.times { tsbs_wait_update }
+      @log_window.back_one
+    end
+  end
+  end
+
 end
