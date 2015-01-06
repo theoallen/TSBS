@@ -2,6 +2,9 @@
 # TSBS v1.4 Bugfixes
 #-------------------------------------------------------------------------------
 # Change Logs :
+# 2015.01.06 - Added fix for default flip
+#            - Change how update key work in battler icon
+#            - Added move to target fix
 # 2015.01.01 - Added YEA skill steal compatibility
 # 2014.12.25 - Release date
 #
@@ -38,18 +41,29 @@
 # - Incompatibility with AEA Charge turn battle(?)
 #
 # - Incompatibility with YEA Party Manager + Addon 
+#
+# - Enemy Default flip doesn't work (FIXED!)
+#
+# - Move to target + area tag + flipped battler cause the battler go off screen
+#   (FIXED!)
 #-------------------------------------------------------------------------------
 # To use this patch, simply put this script below implementation
 #===============================================================================
+
+#===============================================================================
+# ** Game_Battler
+#===============================================================================
+
 class Game_Battler
-  #-------------------
+  #----------------------------------
   # Weapon icon fix
-  #-------------------
+  #----------------------------------
   def icon_file(index = 0)
     return @icon_file unless @icon_file.empty?
     return weapons[index].icon_file if actor? && weapons[index]
     return ''
   end
+  
   #----------------------------------
   # System sound fix
   #----------------------------------
@@ -80,6 +94,7 @@ class Game_Battler
   def play_sound?
     SceneManager.in_battle? && PlaySystemSound
   end
+  
   #----------------------------------
   # End action fix
   #----------------------------------
@@ -88,6 +103,7 @@ class Game_Battler
     @finish = true
     method_wait
   end
+  
   #----------------------------------
   # Smooth move to target fix
   #----------------------------------
@@ -96,8 +112,7 @@ class Game_Battler
       size = target_array.size
       xpos = target_array.inject(0) {|r,battler| r + battler.x}/size
       ypos = target_array.inject(0) {|r,battler| r + battler.y}/size
-      xpos += @acts[1]
-      xpos *= -1 if flip && !@ignore_flip_point
+      xpos += @acts[1] * (flip && !@ignore_flip_point ? -1 : 1)
       dur = @acts[3] || 25
       rev = @acts[4]
       rev = true if rev.nil?
@@ -114,17 +129,56 @@ class Game_Battler
     smooth_move(tx,ty,dur,rev)
   end
   
+  #----------------------------------
+  # Move to target flip fix
+  #----------------------------------
+  def setup_move_to_target
+    return TSBS.error(@acts[0], 4, @used_sequence) if @acts.size < 5
+    stop_all_movements
+    if area_flag
+      size = target_array.size
+      xpos = target_array.inject(0) {|r,battler| r + battler.x}/size
+      ypos = target_array.inject(0) {|r,battler| r + battler.y}/size
+      xpos += @acts[1] * (flip && !@ignore_flip_point ? -1 : 1)
+      # Get the center coordinate of enemies
+      goto(xpos, ypos + @acts[2], @acts[3], @acts[4])
+      return
+    end
+    xpos = target.x + (flip ? -@acts[1] : @acts[1])
+    ypos = target.y + @acts[2]
+    goto(xpos, ypos, @acts[3], @acts[4], @acts[5] || 0)
+  end
+  
 end
+
+#===============================================================================
+# ** Game_Enemy
+#===============================================================================
 
 class Game_Enemy
   #-------------------
-  # Enemy revival
+  # Enemy revival fix
   #-------------------
   def hp=(hp)
     super
     @collapsed = false if hp > 0
   end
+  
+  #-------------------
+  # Default flip fix
+  #-------------------
+  def default_flip
+    result = TSBS::Enemy_Default_Flip
+    toggler = (!data_battler.note[DefaultFlip].nil? rescue false)
+    result = !result if toggler
+    return result
+  end
+  
 end
+
+#===============================================================================
+# ** Sprite_Battler
+#===============================================================================
 
 class Sprite_Battler
   #----------------------------
@@ -138,6 +192,7 @@ class Sprite_Battler
     @battler_visible = not_hidden && not_collapsed
     self.opacity = 0 unless @battler_visible
   end
+  
   #----------------------------
   # Opacity refresh fix
   #----------------------------
@@ -148,6 +203,10 @@ class Sprite_Battler
   
 end
 
+#===============================================================================
+# ** Sprite_AnimGuard
+#===============================================================================
+
 class Sprite_AnimGuard
   #----------------------------
   # Get battler (Multiple animation fix)
@@ -155,7 +214,57 @@ class Sprite_AnimGuard
   def battler
     @spr_battler.battler
   end
+  
 end
+
+#===============================================================================
+# ** Sprite_BattlerIcon
+#===============================================================================
+
+class Sprite_BattlerIcon
+  #----------------------------------
+  # Change update key for icon
+  #----------------------------------
+  def update_key
+    actor = battler # Just make alias
+    @used_key = battler.icon_key
+    array = Icons[@used_key]
+    return icon_error unless array
+    self.anchor = array[0]
+    @dummy.x = (battler.flip ? -array[1] : array[1])
+    @dummy.y = array[2]
+    @above_char = array[3]
+    update_placement
+    self.angle = array[4]
+    target = array[5]
+    duration = array[6]
+    icon_index = (eval(array[7]) rescue 0) if array[7].is_a?(String)
+    if array[7] >= 0
+      icon_index = array[7]
+    elsif !array[7].nil?
+      if array[7] == -1 # First weapon ~
+        icon_index = (battler.weapons[0].icon_index rescue 0)
+      elsif array[7] == -2 # Second weapon ~
+        icon_index = (battler.weapons[1].icon_index rescue 
+          (battler.weapons[0].icon_index rescue 0))
+      elsif array[7] <= -3 # Custom icon graphic
+        icon_index = -1  
+      end
+    end
+    self.mirror = (array[8].nil? ? false : array[8])
+    if array[9] && array[10] && array[11]
+      @dummy.slide(array[9], array[10], array[11])
+    end
+    icon_index = icon_index || 0
+    self.icon_index = icon_index
+    change_angle(target, duration)
+    battler.icon_key = ""
+  end
+end
+
+#===============================================================================
+# ** Spriteset_Battle
+#===============================================================================
 
 class Spriteset_Battle
   #----------------------------
@@ -170,7 +279,12 @@ class Spriteset_Battle
       Bitmap.new(1, 1)
     end
   end
+  
 end
+
+#===============================================================================
+# ** Window_BattleLog
+#===============================================================================
 
 class Window_BattleLog
   #-----------------------------------------
@@ -181,7 +295,12 @@ class Window_BattleLog
       YEA::BATTLE::MSG_SUBSTITUTE_HIT
     add_text(sprintf(Vocab::Substitute, substitute.name, target.name))
   end
+  
 end
+
+#===============================================================================
+# ** Scene_Battle
+#===============================================================================
 
 class Scene_Battle
   #-----------------------------------------
@@ -199,8 +318,9 @@ class Scene_Battle
       wait(tsbs_wait_dur)
     end
   end
+  
   #-----------------------------------------
-  # Skill Steal patch
+  # YEA - Skill Steal patch
   #-----------------------------------------
   if $imported["YEA-SkillSteal"]
   alias tsbs_skill_steal_apply_item tsbs_apply_item
