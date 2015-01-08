@@ -376,6 +376,7 @@ class Game_Party
     battle_members.each do |m|
       m.init_oripost
       m.setup_instant_reset
+      m.sprite.start_effect(:appear)
     end
   end
 end
