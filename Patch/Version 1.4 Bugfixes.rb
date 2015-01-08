@@ -2,6 +2,7 @@
 # TSBS v1.4 Bugfixes
 #-------------------------------------------------------------------------------
 # Change Logs :
+# 2015.01.08 - Added compatibility with YEA Party Command
 # 2015.01.06 - Added fix for default flip
 #            - Change how update key work in battler icon
 #            - Added move to target fix
@@ -10,6 +11,7 @@
 #
 #-------------------------------------------------------------------------------
 # Known issues :
+#-------------------------------------------------------------------------------
 # - When you set an event in Troop that target all enemies (like change enemy 
 #   HP / MP, hidden enemies will be revealed, but can not be targeted) (FIXED!)
 #
@@ -34,18 +36,22 @@
 #
 # - small issues on :sm_target and :end_action (FIXED!)
 #
+# - Enemy Default flip doesn't work (FIXED!)
+#
+# - Move to target + area tag + flipped battler cause the battler go off screen
+#   (FIXED!)
+#
+#-------------------------------------------------------------------------------
+# Known incompatibilities :
+#-------------------------------------------------------------------------------
 # - Incompatibility with YEA Active Chain Skill (FIXED!)
 #
 # - Incompatibility with YEA Skill Steal (FIXED!)
 #
 # - Incompatibility with AEA Charge turn battle(?)
 #
-# - Incompatibility with YEA Party Manager + Addon 
+# - Incompatibility with YEA Party Command (FIXED!)
 #
-# - Enemy Default flip doesn't work (FIXED!)
-#
-# - Move to target + area tag + flipped battler cause the battler go off screen
-#   (FIXED!)
 #-------------------------------------------------------------------------------
 # To use this patch, simply put this script below implementation
 #===============================================================================
@@ -360,4 +366,17 @@ class Scene_Battle
   end
   end
 
+end
+
+if $imported["YEA-CommandParty"]
+class Game_Party
+  alias tsbs_set_party_cooldown set_party_cooldown
+  def set_party_cooldown
+    tsbs_set_party_cooldown
+    battle_members.each do |m|
+      m.init_oripost
+      m.setup_instant_reset
+    end
+  end
+end
 end
