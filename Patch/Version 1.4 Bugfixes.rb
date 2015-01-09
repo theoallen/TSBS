@@ -2,6 +2,7 @@
 # TSBS v1.4 Bugfixes
 #-------------------------------------------------------------------------------
 # Change Logs :
+# 2015.01.09 - Added compatibility with YEA Steal Item
 # 2015.01.08 - Added compatibility with YEA Party Command
 # 2015.01.06 - Added fix for default flip
 #            - Change how update key work in battler icon
@@ -51,6 +52,8 @@
 # - Incompatibility with AEA Charge turn battle(?)
 #
 # - Incompatibility with YEA Party Command (FIXED!)
+#
+# - Incompatibility with YEA Steal Item (FIXED!)
 #
 #-------------------------------------------------------------------------------
 # To use this patch, simply put this script below implementation
@@ -364,7 +367,53 @@ class Scene_Battle
       @log_window.back_one
     end
   end
+  end # YEA SKILL STEAL
+
+  #-----------------------------------------
+  # YEA - Steal Item patch
+  #-----------------------------------------
+  if $imported["YEA-StealItems"]
+  alias tsbs_steal_item_apply_item tsbs_apply_item
+  def tsbs_apply_item(target, item, subj = @subject)
+    tsbs_steal_item_apply_item(target, item, subj)
+    tsbs_apply_steal_results(target, item, subj)
   end
+  
+  def tsbs_apply_steal_results(target, item, subj)
+    return if target.actor?
+    return if item.steal_type.nil?
+    if target.stealable_items.empty?
+      fmt = YEA::STEAL::STEAL_EMPTY_TEXT
+      text = sprintf(fmt, target.name)
+    elsif target.result.stolen_item.nil?
+      fmt = YEA::STEAL::STEAL_FAIL_TEXT
+      text = sprintf(fmt, subj.name)
+    else
+      fmt = YEA::STEAL::STEAL_SUCCESS_TEXT
+      actor = subj.name
+      item = stolen_item_text(target)
+      enemy = target.name
+      text = sprintf(fmt, actor, item, enemy)
+    end
+    @stolen_items << text
+  end
+  
+  alias tsbs_steal_item_action_init tsbs_action_init
+  def tsbs_action_init(targets, item, subj)
+    tsbs_steal_item_action_init(targets, item, subj)
+    @stolen_items = []
+  end
+  
+  alias tsbs_steal_item_action_end tsbs_action_end
+  def tsbs_action_end(targets, item, subj)
+    tsbs_steal_item_action_end(targets, item, subj)
+    @stolen_items.each do |text_item|
+      @log_window.add_text(text_item)
+      60.times { tsbs_wait_update }
+      @log_window.back_one
+    end
+  end
+  end # YEA STEAL ITEM
 
 end
 
@@ -380,4 +429,4 @@ class Game_Party
     end
   end
 end
-end
+end # YEA COMMAND PARTY
