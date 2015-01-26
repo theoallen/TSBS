@@ -10,33 +10,49 @@ Terms of Use :
 
 A: Simply credit me as TheoAllen.
 
+
+
 **Q: May I use this script in Commercial games?**
 
 A: Yes. And you have to give me a free copy of the game.
+
+
 
 **Q: May I repost this script to other site?**
 
 A: Yes.
 
+
+
 **Q: May I edit this script?**
 
 A: Yes. Do as you want. And do not claim if it's yours
+
+
 
 **Q: May I take some profit by editing this script?**
 
 A: No.
 
+
+
 **Q: May I translate the script to other language?**
 
 A: Yes.
+
+
 
 **Q: May I use this script for contest/challenge?**
 
 A: If it's non-profit challenge, yes. If it's profit challenge (like monetary gain), then NO.
 
+
+
 **Q: May I sell the third party script/addon?**
 
 A: No.
+
+
 
 How to install :
 ====
