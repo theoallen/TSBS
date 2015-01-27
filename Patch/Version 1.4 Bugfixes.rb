@@ -2,6 +2,7 @@
 # TSBS v1.4 Bugfixes
 #-------------------------------------------------------------------------------
 # Change Logs :
+# 2015.01.27 - Change target fix
 # 2015.01.09 - Added compatibility with YEA Steal Item
 # 2015.01.08 - Added compatibility with YEA Party Command
 # 2015.01.06 - Added fix for default flip
@@ -41,6 +42,12 @@
 #
 # - Move to target + area tag + flipped battler cause the battler go off screen
 #   (FIXED!)
+#
+# - In TSBS multiple, when targeting multiple battlers and if the current target
+#   battler is dead, it will automatically switched to another battler. However
+#   due to the glitch, the new target battler is not checked after attacked. So
+#   that if the battler died, it will still counted as alive. Then it could
+#   generate fatal crash. This is a rare case though (FIXED!)
 #
 #-------------------------------------------------------------------------------
 # Known incompatibilities :
@@ -414,7 +421,41 @@ class Scene_Battle
     end
   end
   end # YEA STEAL ITEM
-
+  
+  #-----------------------------------------
+  # Change target fix
+  #-----------------------------------------
+  def tsbs_action_main(targets, item, subj)
+    # Determine if item is not AoE ~
+    if !item.area?
+      subj.area_flag = false
+      # Repeat item sequence for target number times
+      targets.each do |target|
+        old_target = target
+        # Change target if the target is currently dead
+        if target.dead? && !item.for_dead_friend? 
+          target = subj.opponents_unit.random_target
+          break if target.nil?
+          # Break if there is no target avalaible or force break action
+        end
+        target = @cover_battlers[target] if @cover_battlers[target]
+        $game_temp.battler_targets << target if old_target != target
+        # Do sequence
+        subj.target = target
+        subj.battle_phase = :skill
+        wait_for_skill_sequence
+        break if [:forced, :idle].include?(subj.battle_phase) || 
+          subj.break_action
+      end
+    # If item is area of effect damage. Do sequence skill only once
+    else
+      subj.area_flag = true
+      subj.battle_phase = :skill
+      wait_for_skill_sequence
+      subj.area_flag = false
+    end
+  end
+  
 end
 
 if $imported["YEA-CommandParty"]
