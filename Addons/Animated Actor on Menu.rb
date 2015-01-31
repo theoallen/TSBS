@@ -1,6 +1,6 @@
 #===============================================================================
 # TSBS Addon - Animated Actor on Menu
-# Version : 1.0 
+# Version : 1.0b
 # Language : English
 #-------------------------------------------------------------------------------
 # Requires : 
@@ -16,7 +16,8 @@
 #===============================================================================
 # Change Logs:
 #-------------------------------------------------------------------------------
-# 2015.01.30
+# 2015.02.01 - Fixed glicth where the actors appeared in item menu.
+# 2015.01.30 - Initiali Release
 #===============================================================================
 =begin
 
@@ -108,7 +109,8 @@ class Window_MenuStatus
   # * New update viewport
   #---------------------------------------------------------------------------
   def update_viewport
-    args = [x+standard_padding, y+standard_padding, 
+    return unless @inner_viewport # just in case
+    args = [global_x + standard_padding, global_y+standard_padding, 
       width-standard_padding*2,height-standard_padding*2]
     @inner_viewport.rect.set(*args)
     @inner_viewport.ox = self.ox
@@ -119,13 +121,35 @@ class Window_MenuStatus
   # * New update sprites
   #---------------------------------------------------------------------------
   def update_sprites
+    return unless @inner_sprites # just in case
     $game_party.members.each_with_index do |m,i| 
       rect = item_rect(i)
       m.x = rect.x + TSBS::ActorMenu_X
       m.y = rect.y + TSBS::ActorMenu_Y
       m.update
     end
-    @inner_sprites.each {|spr| spr.update}
+    @inner_sprites.each {|spr| spr.update; spr.visible = visible_case}
+  end
+  
+  #---------------------------------------------------------------------------
+  # * Visible case
+  #---------------------------------------------------------------------------
+  def visible_case
+    visible && open
+  end
+  
+  #---------------------------------------------------------------------------
+  # * Global X position in screen
+  #---------------------------------------------------------------------------
+  def global_x
+    viewport ? viewport.x + x : x
+  end
+  
+  #---------------------------------------------------------------------------
+  # * Global Y position in screen
+  #---------------------------------------------------------------------------
+  def global_y
+    viewport ? viewport.y + y : y
   end
   
   #---------------------------------------------------------------------------
