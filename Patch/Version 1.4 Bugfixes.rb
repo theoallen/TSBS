@@ -2,7 +2,8 @@
 # TSBS v1.4 Bugfixes
 #-------------------------------------------------------------------------------
 # Change Logs :
-# 2015.01.27 - Change target fix
+# 2015.02.04 - Fixed Smooth return typo that cause fatal crash
+#            - Fixed Show icon index
 # 2015.01.09 - Added compatibility with YEA Steal Item
 # 2015.01.08 - Added compatibility with YEA Party Command
 # 2015.01.06 - Added fix for default flip
@@ -43,11 +44,12 @@
 # - Move to target + area tag + flipped battler cause the battler go off screen
 #   (FIXED!)
 #
-# - In TSBS multiple, when targeting multiple battlers and if the current target
-#   battler is dead, it will automatically switched to another battler. However
-#   due to the glitch, the new target battler is not checked after attacked. So
-#   that if the battler died, it will still counted as alive. Then it could
-#   generate fatal crash. This is a rare case though (FIXED!)
+# - When you're using :sm_return, it will cause crash due to typo (FIXED!)
+# 
+# - When you're using index -3 in icon settings. Unless you give the notetag
+#   <iconfile: name> you cant show icon. It should display default icon instead
+#   of displaying nothing. No wonder some people keep asking me "how to show
+#   weapon icon?"
 #
 #-------------------------------------------------------------------------------
 # Known incompatibilities :
@@ -165,6 +167,18 @@ class Game_Battler
     goto(xpos, ypos, @acts[3], @acts[4], @acts[5] || 0)
   end
   
+  #-----------------------------------
+  # Smooth return patch
+  #-----------------------------------
+  def setup_smooth_return
+    tx = @ori_x
+    ty = @ori_y
+    dur = @acts[1] || 25
+    rev = @acts[2]
+    rev = true if rev.nil?
+    smooth_move(tx,ty,dur,rev)
+  end
+  
 end
 
 #===============================================================================
@@ -238,6 +252,32 @@ end
 #===============================================================================
 
 class Sprite_BattlerIcon
+  #--------------------------------------
+  # Iconfix
+  #--------------------------------------
+  def icon_index=(index)
+    @icon_index = index
+    if index < 0
+      battler = @spr_battler.battler
+      name = battler.icon_file(index + 1)
+      if name.empty?
+        index = index.abs - 3
+        self.icon_index = (battler.weapons[index].icon_index rescue (
+          battler.weapons[index + 1].icon_index) rescue 0)
+        return
+      else
+        bmp = Cache.system(name)
+        self.bitmap = bmp
+        return
+      end
+    end
+    icon_bitmap = Cache.system("Iconset")
+    rect = Rect.new(index % 16 * 24, index / 16 * 24, 24, 24)
+    bmp = Bitmap.new(24,24)
+    bmp.blt(0, 0, icon_bitmap, rect, 255)
+    self.bitmap = bmp
+  end
+  
   #----------------------------------
   # Change update key for icon
   #----------------------------------
@@ -264,7 +304,7 @@ class Sprite_BattlerIcon
         icon_index = (battler.weapons[1].icon_index rescue 
           (battler.weapons[0].icon_index rescue 0))
       elsif array[7] <= -3 # Custom icon graphic
-        icon_index = -1  
+        icon_index = array[7] + 2
       end
     end
     self.mirror = (array[8].nil? ? false : array[8])
@@ -421,41 +461,7 @@ class Scene_Battle
     end
   end
   end # YEA STEAL ITEM
-  
-  #-----------------------------------------
-  # Change target fix
-  #-----------------------------------------
-  def tsbs_action_main(targets, item, subj)
-    # Determine if item is not AoE ~
-    if !item.area?
-      subj.area_flag = false
-      # Repeat item sequence for target number times
-      targets.each do |target|
-        old_target = target
-        # Change target if the target is currently dead
-        if target.dead? && !item.for_dead_friend? 
-          target = subj.opponents_unit.random_target
-          break if target.nil?
-          # Break if there is no target avalaible or force break action
-        end
-        target = @cover_battlers[target] if @cover_battlers[target]
-        $game_temp.battler_targets << target if old_target != target
-        # Do sequence
-        subj.target = target
-        subj.battle_phase = :skill
-        wait_for_skill_sequence
-        break if [:forced, :idle].include?(subj.battle_phase) || 
-          subj.break_action
-      end
-    # If item is area of effect damage. Do sequence skill only once
-    else
-      subj.area_flag = true
-      subj.battle_phase = :skill
-      wait_for_skill_sequence
-      subj.area_flag = false
-    end
-  end
-  
+
 end
 
 if $imported["YEA-CommandParty"]
