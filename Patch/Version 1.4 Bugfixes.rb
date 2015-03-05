@@ -2,6 +2,7 @@
 # TSBS v1.4 Bugfixes
 #-------------------------------------------------------------------------------
 # Change Logs :
+# 2015.03.06 - Fixed forced act bug for area target
 # 2015.02.04 - Fixed Smooth return typo that cause fatal crash
 #            - Fixed Show icon index
 # 2015.01.09 - Added compatibility with YEA Steal Item
@@ -177,6 +178,23 @@ class Game_Battler
     rev = @acts[2]
     rev = true if rev.nil?
     smooth_move(tx,ty,dur,rev)
+  end
+  
+  #-----------------------------------
+  # forced acts patch
+  #-----------------------------------
+  def setup_force_act
+    return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
+    act_key = @acts[1]
+    if area_flag
+      target_array.each do |target|
+        target.forced_act = act_key
+        target.force_change_battle_phase(:forced)
+      end
+    else
+      target.forced_act = act_key
+      target.force_change_battle_phase(:forced)
+    end
   end
   
 end
