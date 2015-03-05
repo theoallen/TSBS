@@ -50,8 +50,9 @@
 # - When you're using index -3 in icon settings. Unless you give the notetag
 #   <iconfile: name> you cant show icon. It should display default icon instead
 #   of displaying nothing. No wonder some people keep asking me "how to show
-#   weapon icon?"
+#   weapon icon?" (FIXED!)
 #
+# - When you're using [:forced] in area skill, it will produce error (FIXED!)
 #-------------------------------------------------------------------------------
 # Known incompatibilities :
 #-------------------------------------------------------------------------------
