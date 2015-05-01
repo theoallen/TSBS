@@ -2,6 +2,9 @@
 # TSBS v1.4 Bugfixes
 #-------------------------------------------------------------------------------
 # Change Logs :
+# 2015.05.01 - Fixed hide target in animation crash
+#            - Fixed accessing sprite when escape battle crash (detail below)
+# 2015.03.25 - Added patch to work with TSBS in game editor
 # 2015.03.06 - Fixed forced act bug for area target
 # 2015.02.04 - Fixed Smooth return typo that cause fatal crash
 #            - Fixed Show icon index
@@ -53,6 +56,12 @@
 #   weapon icon?" (FIXED!)
 #
 # - When you're using [:forced] in area skill, it will produce error (FIXED!)
+#
+# - When you're going to use hide target in animation. It produces error pointed
+#   to basic modules (FIXED!)
+#
+# - When you define your own escape sequence, and you put a command that
+#   modifies the actor sprite (e.g, [:fadeout]) it produces error (FIXED!)
 #-------------------------------------------------------------------------------
 # Known incompatibilities :
 #-------------------------------------------------------------------------------
@@ -76,7 +85,7 @@
 
 class Game_Battler
   #----------------------------------
-  # Weapon icon fix
+  # * Weapon icon fix
   #----------------------------------
   def icon_file(index = 0)
     return @icon_file unless @icon_file.empty?
@@ -85,7 +94,7 @@ class Game_Battler
   end
   
   #----------------------------------
-  # System sound fix
+  # * System sound fix
   #----------------------------------
   def make_base_result(user, item)
     tsbs_make_base_result(user, item)
@@ -116,7 +125,7 @@ class Game_Battler
   end
   
   #----------------------------------
-  # End action fix
+  # * End action fix
   #----------------------------------
   def setup_end_action
     @break_action = true
@@ -125,7 +134,7 @@ class Game_Battler
   end
   
   #----------------------------------
-  # Smooth move to target fix
+  # * Smooth move to target fix
   #----------------------------------
   def setup_smooth_move_target
     if area_flag
@@ -150,7 +159,7 @@ class Game_Battler
   end
   
   #----------------------------------
-  # Move to target flip fix
+  # * Move to target flip fix
   #----------------------------------
   def setup_move_to_target
     return TSBS.error(@acts[0], 4, @used_sequence) if @acts.size < 5
@@ -170,7 +179,7 @@ class Game_Battler
   end
   
   #-----------------------------------
-  # Smooth return patch
+  # * Smooth return patch
   #-----------------------------------
   def setup_smooth_return
     tx = @ori_x
@@ -182,7 +191,7 @@ class Game_Battler
   end
   
   #-----------------------------------
-  # forced acts patch
+  # * forced acts patch
   #-----------------------------------
   def setup_force_act
     return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
@@ -195,6 +204,69 @@ class Game_Battler
     else
       target.forced_act = act_key
       target.force_change_battle_phase(:forced)
+    end
+  end
+  
+  #============================================================================
+  # ** Patch for implementation to work with in game editor
+  # Some commands that had been fixed
+  # - [:focus, ...]
+  # - [:screen, :tone, ...]
+  # - [:screen, :color, ...]
+  #============================================================================
+  def setup_focus
+    return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
+    case @focus_target
+    when 1; eval_target = lambda{|s|opponents_unit.members.include?(s.battler)};
+    when 2; eval_target = lambda{|s|friends_unit.members.include?(s.battler)};
+    when 3; eval_target = lambda{|s|true};
+    else;   eval_target = lambda{|s|target_array.include?(s.battler)};
+    end
+    sprset = get_spriteset
+    rect = sprset.focus_bg.bitmap.rect
+    color = @acts[2] || Focus_BGColor
+    color = Color.new(*color) if color.is_a?(Array)
+    sprset.focus_bg.bitmap.fill_rect(rect,color)  # Recolor focus background
+    sprset.focus_bg.fadein(@acts[1])        # Trigger fadein
+    sprset.battler_sprites.select do |spr|
+      !spr.battler.nil? # Select avalaible battler
+    end.each do |spr|
+      if spr.battler != self && (spr.battler.actor? ? true : spr.battler.alive?)
+        check = eval_target.call(spr)
+        spr.fadeout(@acts[1]) if !check
+        spr.fadein(@acts[1]) if check
+      end
+    end
+  end
+  
+  #------------------------------------------------------
+  # * Fix for auto-generated sequence from in game editor
+  #------------------------------------------------------
+  def setup_screen
+    return TSBS.error(@acts[0], 1, @used_sequence) if @acts.size < 2
+    screen = $game_troop.screen
+    case @acts[1]
+    when Screen_Tone
+      return TSBS.error(@acts[0], 3, @used_sequence) if @acts.size < 4
+      tone = @acts[2].is_a?(Array) ? Tone.new(*@acts[2]) : @acts[2]
+      duration = @acts[3]
+      screen.start_tone_change(tone, duration)
+    when Screen_Shake
+      return TSBS.error(@acts[0], 4, @used_sequence) if @acts.size < 5
+      power = @acts[2]
+      speed = @acts[3]
+      duration = @acts[4]
+      screen.start_shake(power, speed, duration)
+    when Screen_Flash
+      return TSBS.error(@acts[0], 3, @used_sequence) if @acts.size < 4
+      color = @acts[2].is_a?(Array) ? Color.new(*@acts[2]) : @acts[2]
+      duration = @acts[3]
+      screen.start_flash(color, duration)
+    when Screen_Normalize
+      return TSBS.error(@acts[0], 2, @used_sequence) if @acts.size < 3
+      tone = Tone.new
+      duration = @acts[2]
+      screen.start_tone_change(tone, duration)
     end
   end
   
@@ -372,6 +444,65 @@ class Window_BattleLog
   end
   
 end
+
+#===============================================================================
+# ** Accessing spriteset fix
+#===============================================================================
+
+class Scene_Battle
+  #----------------------------------------------------------------------------
+  # Store spriteset as global variable in case if SceneManager.scene returns
+  # a nilclass, but spriteset still exist / not disposed yet. The question
+  # come up, how could we access the spriteset then?
+  #----------------------------------------------------------------------------
+  alias lazy_fix_start start
+  def start
+    lazy_fix_start
+    $sprset = @spriteset
+  end
+end
+
+class Game_Actor
+  #----------------------------------------------------------------------------
+  # * Change how to access sprite
+  #----------------------------------------------------------------------------
+  def sprite
+    $sprset.get_sprite(self)
+  end
+  
+end
+
+#===============================================================================
+# ** Hide target fix in animation
+#===============================================================================
+
+class Sprite
+  #----------------------------------------------------------------------------
+  # * Change how my basic module works
+  #----------------------------------------------------------------------------
+  def flash(color, duration)
+    theo_clonesprites_flash(color, duration)
+    @dur_flash = duration
+    @color_flash = color.clone if color
+    @alpha_val = @color_flash.alpha.to_f
+    @alpha_ease = @alpha_val / duration
+  end
+end
+
+class Sprite_Battler
+  #----------------------------------------------------------------------------
+  # * Change alias to super. The next ruby version should consider alias as
+  # super -_-
+  #----------------------------------------------------------------------------
+  def flash(color, duration)
+    self.color.set(EmptyColor)
+    super(color, duration)
+    @spr_icon.flash(color, duration)
+    @shadow.flash(color, duration) unless color
+  end
+end
+
+
 
 #===============================================================================
 # ** Scene_Battle
