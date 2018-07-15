@@ -2,6 +2,7 @@
 # TSBS v1.4 Bugfixes
 #-------------------------------------------------------------------------------
 # Change Logs :
+# 2018.07.15 - Fixed bug where random reflect didn't kill victim
 # 2015.05.01 - Fixed hide target in animation crash
 #            - Fixed accessing sprite when escape battle crash (detail below)
 # 2015.03.25 - Added patch to work with TSBS in game editor
@@ -19,6 +20,9 @@
 #-------------------------------------------------------------------------------
 # Known issues :
 #-------------------------------------------------------------------------------
+# - When a projectile is reflected to friends unit, and it reaches zero didn't 
+#   kill it. If actor is the victim, it may crash. (FIXED!)
+#
 # - When you set an event in Troop that target all enemies (like change enemy 
 #   HP / MP, hidden enemies will be revealed, but can not be targeted) (FIXED!)
 #
@@ -406,6 +410,33 @@ class Sprite_BattlerIcon
     self.icon_index = icon_index
     change_angle(target, duration)
     battler.icon_key = ""
+  end
+end
+
+#===============================================================================
+# ** Projectile Reflect Fix
+#===============================================================================
+
+class Sprite_Projectile
+  def repel
+    temp = subject
+    if random_reflect? # Random target reflect if skill/item allow to do so
+      temp = temp.friends_unit.alive_members.shuffle[0]
+      $game_temp.battler_targets << temp # <-- Add to refresh
+    end
+    self.subject = target
+    self.target = temp
+    # Invert setup as well ~
+    start = @setup[PROJ_START]
+    start_p = @setup[PROJ_STARTPOS]
+    @setup[PROJ_START] = @setup[PROJ_END]
+    @setup[PROJ_STARTPOS] = @setup[PROJ_ENDPOS]
+    @setup[PROJ_END] = start
+    @setup[PROJ_ENDPOS] = start_p
+    self.mirror = !self.mirror
+    # Re-start projectile
+    start_projectile
+    start_animation(@animation, !@mirror)
   end
 end
 
