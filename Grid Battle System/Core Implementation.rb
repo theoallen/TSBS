@@ -11,18 +11,24 @@
 =begin
 
   ----------------------------------------------------------------------------
-  * Skill Notetags (which confirmed works)
+  * Skill Notetags
   ----------------------------------------------------------------------------
   
   <null target>
   Allow player to target an empty grid
   
   <null grid>
-  [:snow_animation] command play animation on an empty grid. If an item tagged
-  as <null target>, you don't need to put this tag
+  When an item / skill is tagged using this tag, and has area effect damage,
+  playing the animation will also play animation on an empty grid. If an item 
+  tagged as <null target>, you don't need to put this tag
+  
+  <grid target: method_name>
+  <grid aoe: method_name>
+  
+  <highlight only>
   
   ----------------------------------------------------------------------------
-  * Sequence commands
+  * Sequence commands (detailed instruction later)
   ----------------------------------------------------------------------------
   
   1)  :grid_save    >> Save current target grid
@@ -37,27 +43,69 @@
   How things works
   
   There's one variable named @center_grid. It's the center of all everything.
-  @center_grid being set when you select an initial grid during targeting phase
+  @center_grid set when you select an initial grid during targeting phase
   which later being used to be a relative position for adding, removing, or
   changing target grid for Area damage like splash damage etc.
 
 =end
 #===============================================================================
 # End of instructions
+#-------------------------------------------------------------------------------
+# Customization part
 #===============================================================================
-
 module Grid
+  #=============================================================================
+  # ATTENTION! This field requires a bit of Ruby scripting knowledge. But I'll
+  # try my best to try to explain
+  #----------------------------------------------------------------------------
+  # * Some of things to remember :
+  #----------------------------------------------------------------------------
+  # * Grid direction rules
+  #----------------------------------------------------------------------------
+  # 2 = DOWN
+  # 4 = LEFT
+  # 6 = RIGHT
+  # 8 = UP
+  #
+  # 1 = DOWN-LEFT
+  # 3 = DOWN-RIGHT
+  # 7 = UP-LEFT
+  # 9 = UP-RIGHT
+  #----------------------------------------------------------------------------
+  # * Grid methods (You can expand grid based on these)
+  #----------------------------------------------------------------------------
+  # Representation of grid index
+  #  X -------------------------------> 
+  #  | [ 0],[ 1],[ 2],[ 3],[ 4],[ 5],
+  #  | [ 6],[ 7],[ 8],[ 9],[10],[11],
+  #  | [12],[13],[14],[15],[16],[17],
+  #  V
+  #----------------------------------------------------------------
+  # > Grid.neighbor(index, direction, (times))
+  #   Get grid index relatively based on initial index
+  #
+  #   Ex.
+  #   Grid.neighbor(8, 6) -> 9
+  #   Grid.neighbor(8, 4) -> 7
+  #   Grid.neighbor(8, 6, 2) -> 10 (two times to right)
+  #
+  #------------------------------------------------------------------
+  # > Grid.surrounding(index, direction)
+  #   Get all grid index relatively based on initial index
+  #   Direction can be ommited
+  #
+  #   Ex.
+  #   Grid.surrounding(8) -> [1,2,3,7,9,13,14,15]
+  #   Grid.surrounding(8, [2,4,6,8]) -> [2,7,9,14] (only 4 direction)
+  #   Grid.surrounding(0, [2,4,6,8]) -> [6,1] (other 2 dir are empty)
+  #=============================================================================
+  # Config available grid to target here.
+  #
+  # By default, all skills targeting area is all area. Means a skill is 
   #-----------------------------------------------------------------------------
-  # Config get grid area here. Return have to be array of index
-  #-----------------------------------------------------------------------------
-  module Area
+  module Targeting
     
-    # Dont remove this
-    def self.single(index)
-      return [index]
-    end
-    
-    # Target all area (Free target)
+    # Target all area (Default target, do not remove!)
     def self.all_area(user)
       return Grid.all_area
     end
@@ -72,6 +120,16 @@ module Grid
       return Grid.surrounding(user.grid_pos, [1,2,3,4,6,7,8,9], true)
     end
     
+  end
+  #=============================================================================
+  # Config area of effect here
+  #
+  #-----------------------------------------------------------------------------
+  module Area
+    # Single Grid target (Default Area Effect, do not remove!
+    def self.single(index)
+      return [index]
+    end
   end
 end
 #===============================================================================
@@ -144,7 +202,7 @@ class RPG::UsableItem
   # INDEX : GRID::001
   #----------------------------------------------------------------------------
   def possible_grid(user)
-    return Grid::Area.method(@target_grid).call(user)
+    return Grid::Targeting.method(@target_grid).call(user)
   end
   
   #----------------------------------------------------------------------------
@@ -1117,33 +1175,11 @@ class Sprite_GridPointer < Sprite
       @on_cancel.call
       return
     end
-    if @input == :special
-      special_input_mode
-    else    
-      default_input_mode
-    end
+    default_input_mode
   end
   
   #----------------------------------------------------------------------------
-  # * Special input mode for open attack
-  #----------------------------------------------------------------------------
-  def special_input_mode
-    index = @possible_grid.index(@grid_pos)
-    if Input.repeat?(:DOWN) || Input.repeat?(:RIGHT)
-      next_index = index + 1
-      next_index %= @possible_grid.size
-      @grid_pos = @possible_grid[next_index]
-      Sound.play_cursor
-    elsif Input.repeat?(:UP) || Input.repeat?(:LEFT)
-      next_index = index - 1
-      next_index %= @possible_grid.size
-      @grid_pos = @possible_grid[next_index]
-      Sound.play_cursor
-    end
-  end
-  
-  #----------------------------------------------------------------------------
-  # * Default input, how the thing should have
+  # * Default input
   #----------------------------------------------------------------------------
   def default_input_mode
     dir = nil
@@ -1401,41 +1437,12 @@ class Scene_Battle
   end
   
   #----------------------------------------------------------------------------
-  # * Semi auto-targeting (overwrite)
+  # * Command attack
   #----------------------------------------------------------------------------
+  alias tsbs_grid_command_attack command_attack
   def command_attack
     @skill = $data_skills[BattleManager.actor.attack_skill_id]
-    $game_temp.battle_aid = $data_skills[BattleManager.actor.attack_skill_id] if
-      $imported["YEA-BattleEngine"]
-    actor = BattleManager.actor
-    actor.input.set_attack
-    #--------------------------------------------------------------------------
-    # * Scan target
-    #--------------------------------------------------------------------------
-    next_grid = Grid.neighbor(actor.grid_pos, 6)
-    check_vertical = Grid.vertical(next_grid, 1) - [next_grid]
-    while next_grid
-      break if $game_troop.member_in_grid(next_grid, true)
-      next_grid = Grid.neighbor(next_grid, 6)
-    end
-    final_target = [next_grid] + check_vertical
-    final_target = final_target & $game_troop.occupied_grid
-    #--------------------------------------------------------------------------
-    # * target execution
-    #--------------------------------------------------------------------------
-    if final_target.size == 1
-      $game_temp.battle_aid = nil if $imported['YEA-BattleEngine']
-      center_grid = final_target[0]
-      target_grid = item_in_use.grid_area(center_grid)
-      BattleManager.actor.set_target_grid(center_grid, target_grid, 0)
-      next_command
-    elsif final_target.size > 1
-      setup = {:pos_grid => final_target, :input => :special}
-      select_enemy_selection(final_target[0], setup)
-    else
-      $game_temp.battle_aid = nil if $imported['YEA-BattleEngine']
-      next_command
-    end
+    tsbs_grid_command_attack
   end
   
   #----------------------------------------------------------------------------
