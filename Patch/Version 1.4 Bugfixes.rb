@@ -2,6 +2,8 @@
 # TSBS v1.4 Bugfixes
 #-------------------------------------------------------------------------------
 # Change Logs :
+# 2019.03.08 - Fixed crash if boomerang is used together with <area> tag and 
+#              one animation tag
 # 2018.07.15 - Fixed bug where random reflect didn't kill victim
 # 2015.05.01 - Fixed hide target in animation crash
 #            - Fixed accessing sprite when escape battle crash (detail below)
@@ -20,6 +22,9 @@
 #-------------------------------------------------------------------------------
 # Known issues :
 #-------------------------------------------------------------------------------
+# - When a skill throws a projectile and combined with boomerang, area, and
+#   one animation tag, it throws a crash because of reference issuses (FIXED!)
+#
 # - When a projectile is reflected to friends unit, and it reaches zero didn't 
 #   kill it. If actor is the victim, it may crash. (FIXED!)
 #
@@ -437,6 +442,49 @@ class Sprite_Projectile
     # Re-start projectile
     start_projectile
     start_animation(@animation, !@mirror)
+    self.subject = temp if boomerang # Boomerang fix
+  end
+  
+  # Boomerang + Area tag fix
+  def start_projectile
+    subj = (@setup[PROJ_REVERSE] ? @target : @subject)
+    subj = @subject if @target.is_a?(Array)
+    ypos = 0
+    xpos = 0
+    if subj.is_a?(Array)
+      size = subj.size
+      xpos = subj.inject(0) {|r,battler| r + battler.screen_x}/size 
+      ypos = subj.inject(0) {|r,battler| r + battler.screen_y}/size 
+      xpos += @setup[PROJ_STARTPOS][0]
+    else
+      spr_subj = subj.sprite
+      case @setup[PROJ_START]
+      when PROJ_POSITION_HEAD; ypos = subj.y - spr_subj.height
+      when PROJ_POSITION_MID;  ypos = subj.y - spr_subj.height/2
+      when PROJ_POSITION_FEET; ypos = subj.y
+      when PROJ_POSITION_NONE; ypos = xpos = 0
+      else; ypos = subj.y;
+      end
+      xpos = subj.x + @setup[PROJ_STARTPOS][0]
+    end
+    ypos += @setup[PROJ_STARTPOS][1]
+    @angle = (self.mirror ? 360 - @setup[PROJ_ANGLE] : @setup[PROJ_ANGLE])
+    set_point(xpos, ypos)
+    @point.continue = @setup[PROJ_PIERCE]  
+    @afterimage_opac = @setup[PROJ_AFTOPAC]
+    @afterimage_rate = @setup[PROJ_AFTRATE]
+    @anim_top = @setup[PROJ_ANIMPOS]
+    if @setup[PROJ_ANIMSTART]
+      if @setup[PROJ_ANIMSTART] == PROJ_ANIMDEFAULT
+        anim = $data_animations[item.animation_id] 
+      else
+        anim = $data_animations[@setup[PROJ_ANIMSTART]]
+      end
+      @anim_start.start_animation(anim,subj.flip)
+    end
+    @anim_start.target_sprite = [subj.sprite] if @setup[PROJ_FLASH_REF][0]
+    apply_item(target, target.is_a?(Array)) if @setup[PROJ_DAMAGE_EXE] == -1
+    make_aim(@dur, @jump)
   end
 end
 
