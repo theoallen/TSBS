@@ -1,6 +1,6 @@
 #==============================================================================
 # TSBS Addon - Basename Changer
-# Version : 1.0
+# Version : 1.0c
 # Language : English
 # Requires : Theolized SBS version 1.4
 #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -10,6 +10,7 @@
 #==============================================================================
 # Change Logs:
 # -----------------------------------------------------------------------------
+# 2019.04.03 - Changed the proc variable into global to prevent save problems
 # 2019.04.02 - Making sure it actually works + Eng trans. Use this instead of
 #              the one that in the demo
 # 2014.10.13 - Finished
@@ -83,9 +84,9 @@ end
 # Optimized eval formula ~
 #------------------------------------------------------------------------------
 def proc_eval(f, id)
-  (@proc ||= {})[f] ||= eval("lambda { #{f} }")
+  ($proc ||= {})[f] ||= eval("lambda { #{f} }")
   begin
-    @proc[f].call
+    $proc[f].call
   rescue StandardError => err
     ErrorSound.play
     text = "Theolized SBS : \nBasename Changer Condition check error on Actor" +
