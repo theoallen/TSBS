@@ -2,6 +2,8 @@
 # TSBS v1.4 Bugfixes
 #-------------------------------------------------------------------------------
 # Change Logs :
+# 2019.05.19 - Fixed crash, auto re-target from random targetting causing crash
+#              when the new target dies.
 # 2019.03.08 - Fixed crash if boomerang is used together with <area> tag and 
 #              one animation tag
 # 2018.07.15 - Fixed bug where random reflect didn't kill victim
@@ -22,6 +24,11 @@
 #-------------------------------------------------------------------------------
 # Known issues :
 #-------------------------------------------------------------------------------
+# - When using random target, the script auto target another battler if one of 
+#   the original target dies. And if the new target also dies, it did not get 
+#   registered the kill so the script recognize it as alive, this caused crash
+#   (FIXED!)
+#
 # - When a skill throws a projectile and combined with boomerang, area, and
 #   one animation tag, it throws a crash because of reference issuses (FIXED!)
 #
@@ -538,6 +545,39 @@ class Scene_Battle
   def start
     lazy_fix_start
     $sprset = @spriteset
+  end
+  
+  #----------------------------------------------------------------------------
+  # Auto retarget fix
+  #----------------------------------------------------------------------------
+  def tsbs_action_main(targets, item, subj)
+    # Determine if item is not AoE ~
+    if !item.area?
+      subj.area_flag = false
+      # Repeat item sequence for target number times
+      targets.each do |target|
+        # Change target if the target is currently dead
+        if target.dead? && !item.for_dead_friend? 
+          target = subj.opponents_unit.random_target
+          break if target.nil?
+          $game_temp.battler_targets << target # <-- Adding this line
+          # Break if there is no target avalaible or force break action
+        end
+        target = @cover_battlers[target] if @cover_battlers[target]
+        # Do sequence
+        subj.target = target
+        subj.battle_phase = :skill
+        wait_for_skill_sequence
+        break if [:forced, :idle].include?(subj.battle_phase) || 
+          subj.break_action
+      end
+    # If item is area of effect damage. Do sequence skill only once
+    else
+      subj.area_flag = true
+      subj.battle_phase = :skill
+      wait_for_skill_sequence
+      subj.area_flag = false
+    end
   end
 end
 
