@@ -50,6 +50,26 @@
   is fully user's responsibility to provide it for themselves. DO NOT ASK ME 
   HOW TO GET THE MATERIAL OR HOW TO MAKE THEM!
   
+  The user of the script may need to know how to code ruby at some point. If 
+  you're just get into RM and do not know how to code, it is advised to stay
+  away from this script.
+  
+  The script also do not interact with the menu or turn order. It is only 
+  handle the animation sequence when the user uses item/skill, and that's all
+  about it. In which is technically should be compatible with most of turn 
+  system such as ATB, FTB, etc, and should be compatible with any menu script. 
+  With a few exception:
+  
+  - Luna engine is incompatible without patch because we both shared the same
+    method name, and the method name is too common that it ended up overwrite
+    each other
+    
+  - Mog's battler motion, because it is NOT a menu, it's motion to battler
+    sprite effect to create breathing effect. Due to technical reason, we both
+    shared the same sprite function. Mine to handle rotation and Mog's handle
+    the breathing. Both do not interact well. How would you handle rotating
+    sprites while also keep the breathing effect anyway?
+  
   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
   How to make this script work at bare minimum:
   
